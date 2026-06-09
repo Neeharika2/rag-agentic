@@ -1,0 +1,17 @@
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Vector Database (Local persist directory)
+chroma_db/
+
+# Project Planning & Architecture Documents
+project_phases/
