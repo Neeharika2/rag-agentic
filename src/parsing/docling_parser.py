@@ -12,19 +12,38 @@ class DoclingParser(PDFParserInterface):
     """
     
     def __init__(self):
-        # Initialize the default document converter from Docling
+        """
+        Initializes the default DocumentConverter from Docling.
+        On first invocation, this converter will download local OCR and layout model weights
+        from Hugging Face (such as layout detector and table structure models).
+        """
         self.converter = DocumentConverter()
 
     def parse(self, file_path: Union[str, Path]) -> List[Dict[str, Any]]:
+        """
+        Parses the target PDF document using Docling.
+        Preserves reading flow order, sections, and structured tables.
+
+        Parameters:
+        - file_path (Union[str, Path]): Path to the PDF document to be parsed.
+
+        Returns:
+        - List[Dict[str, Any]]: A list of dictionaries representing document items.
+                                Each item contains:
+                                - "type": 'text', 'table', or 'table_raw'
+                                - "section": The nearest heading section string
+                                - "text" or "headers"/"data" fields depending on the item type.
+        """
         file_path = str(file_path)
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"PDF file not found at: {file_path}")
 
-        # Convert the document using Docling
+        # Convert the document using Docling converter
         conversion_result = self.converter.convert(file_path)
         doc = conversion_result.document
         
         elements = []
+        # Keep track of current section/heading to tag downstream text blocks contextually
         current_section = "general"
         
         # Iterate through layout items in reading order
@@ -36,9 +55,11 @@ class DoclingParser(PDFParserInterface):
                 current_section = element.text.strip()
                 continue
                 
+            # Handle table element blocks
             if element_type == "TableItem":
                 try:
                     # Docling provides export_to_dataframe() for structured tables
+                    # We convert this dataframe into row-wise dictionaries
                     df = element.export_to_dataframe()
                     headers = [str(col).strip() for col in df.columns]
                     rows = []
@@ -59,6 +80,7 @@ class DoclingParser(PDFParserInterface):
                         "section": current_section,
                         "text": element.text.strip() if hasattr(element, 'text') else ""
                     })
+            # Handle narrative paragraphs
             elif element_type == "TextItem":
                 text_content = element.text.strip() if hasattr(element, 'text') else ""
                 if text_content:
