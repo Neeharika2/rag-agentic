@@ -48,6 +48,20 @@ class IngestionPipeline:
         for element in parsed_elements:
             # Extract section name and default to 'general' if missing
             section_raw = element.get("section", "general")
+            
+            # Exclude adversarial queries, evaluation suites, and guides from the search corpus index
+            section_lower = section_raw.lower()
+            if any(k in section_lower for k in [
+                "official evaluation query set",
+                "graceful fallback",
+                "multi-document synthesis",
+                "content modality map",
+                "recommended chunking strategy",
+                "q2: which company",
+                "q3: a student"
+            ]):
+                continue
+                
             # Normalize the section code for clean database querying (lowercase, underscore-spaced)
             section_code = section_raw.lower().strip().replace(" ", "_")
             el_type = element.get("type")
