@@ -15,7 +15,7 @@ class ChromaStore(VectorStoreInterface):
     def __init__(
         self, 
         persist_dir: str = "./chroma_db", 
-        collection_name: str = "ipl_assistant",
+        collection_name: str = "placement_assistant",
         embedding_function: Optional[Any] = None
     ):
         """

@@ -43,6 +43,8 @@ class IngestionPipeline:
         - List[Dict[str, Any]]: A list of dictionaries containing "text" and "metadata" fields.
         """
         chunks = []
+        seen_texts = set()
+        
         for element in parsed_elements:
             # Extract section name and default to 'general' if missing
             section_raw = element.get("section", "general")
@@ -54,11 +56,15 @@ class IngestionPipeline:
             if el_type == "text":
                 text_val = element.get("text", "")
                 if text_val:
-                    chunks.append({
-                        # Appending the section code to the text helps retriever find sections contextually
-                        "text": f"{text_val}. Section: {section_code}.",
-                        "metadata": {"section": section_code, "type": "narrative"}
-                    })
+                    chunk_text = f"{text_val}. Section: {section_code}."
+                    text_normalized = chunk_text.strip().lower()
+                    if text_normalized not in seen_texts:
+                        seen_texts.add(text_normalized)
+                        chunks.append({
+                            # Appending the section code to the text helps retriever find sections contextually
+                            "text": chunk_text,
+                            "metadata": {"section": section_code, "type": "narrative"}
+                        })
                     
             # Handle structured tables (cell matrices converted to rows)
             elif el_type == "table":
@@ -80,19 +86,26 @@ class IngestionPipeline:
                         
                     # Join all column representations with a comma and append section code
                     serialized_text = ", ".join(text_parts) + f". Section: {section_code}."
-                    chunks.append({
-                        "text": serialized_text,
-                        "metadata": metadata
-                    })
+                    text_normalized = serialized_text.strip().lower()
+                    if text_normalized not in seen_texts:
+                        seen_texts.add(text_normalized)
+                        chunks.append({
+                            "text": serialized_text,
+                            "metadata": metadata
+                        })
                     
             # Handle raw tables where tabular parsing failed
             elif el_type == "table_raw":
                 text_val = element.get("text", "")
                 if text_val:
-                    chunks.append({
-                        "text": f"{text_val}. Section: {section_code}.",
-                        "metadata": {"section": section_code, "type": "raw_table"}
-                    })
+                    chunk_text = f"{text_val}. Section: {section_code}."
+                    text_normalized = chunk_text.strip().lower()
+                    if text_normalized not in seen_texts:
+                        seen_texts.add(text_normalized)
+                        chunks.append({
+                            "text": chunk_text,
+                            "metadata": {"section": section_code, "type": "raw_table"}
+                        })
         return chunks
 
     def run(self, pdf_path: str) -> Dict[str, Any]:

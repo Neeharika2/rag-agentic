@@ -11,7 +11,7 @@ def main():
     """
     # 1. Establish filesystem paths for target dataset and local vector store
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    pdf_path = os.path.join(base_dir, "uploads", "IPL_LangGraph_RAG_Dataset.pdf")
+    pdf_path = os.path.join(base_dir, "uploads", "Placement_RAG_Dataset_Enhanced.pdf")
     persist_dir = os.path.join(base_dir, "chroma_db")
     
     # 2. Instantiate concrete dependencies (satisfying Parser and Vector Store Interfaces)
@@ -32,7 +32,7 @@ def main():
     
     # 5. Run a simple keyword query on the populated database to verify retrieval
     print("\n[*] Performing verification query on vector database...")
-    query = "Virat Kohli career runs"
+    query = "TCS CGPA requirement"
     search_results = vector_store.search(query, limit=2)
     
     print(f"\nQuery: '{query}'")
