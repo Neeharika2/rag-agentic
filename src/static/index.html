@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPL Intelligence Assistant</title>
+    <!-- Import Outfit font from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* CSS Variables for Premium Monochrome Minimalist Palette */
+        :root {
+            --bg-color: #000000;
+            --card-bg: #0a0a0a;
+            --card-border: #222222;
+            --text-primary: #fafafa;
+            --text-secondary: #888888;
+            --border-hover: #444444;
+            --accent: #ffffff;
+            --accent-inverse: #000000;
+            --shadow-primary: 0 4px 24px rgba(0, 0, 0, 0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            padding: 3rem 1rem;
+        }
+
+        /* Container Layout */
+        .app-container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.8px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 300;
+        }
+
+        /* Minimalist Card Style */
+        .minimal-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: var(--shadow-primary);
+            transition: border-color 0.2s ease;
+        }
+
+        .minimal-card:hover {
+            border-color: var(--border-hover);
+        }
+
+        /* Search Form Styles */
+        .search-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        label {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-left: 2px;
+        }
+
+        .input-group {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            background: #050505;
+            border: 1px solid var(--card-border);
+            color: var(--text-primary);
+            font-size: 1.05rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent);
+            background: #000000;
+        }
+
+        /* Solid Monochrome Button */
+        button[type="submit"] {
+            background: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            color: var(--accent-inverse);
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        button[type="submit"]:hover {
+            background: var(--accent-inverse);
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        button[type="submit"]:active {
+            transform: translateY(1px);
+        }
+
+        /* Results Display */
+        .results-container {
+            display: none; /* Shown dynamically */
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .response-header {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-left: 2px solid var(--accent);
+            padding-left: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .answer-text {
+            line-height: 1.7;
+            font-size: 1.1rem;
+            color: #e2e8f0;
+            white-space: pre-wrap; /* Preserve markdown formats */
+        }
+
+        /* Context Document Chunks Style */
+        .context-section {
+            margin-top: 1rem;
+        }
+
+        .context-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .docs-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .doc-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 1.2rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #d4d4d4;
+            transition: border-color 0.2s ease;
+        }
+
+        .doc-card:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: var(--border-hover);
+        }
+
+        .doc-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Pulse Loading State Style */
+        .loader {
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1rem 0;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #111111 25%, #222222 50%, #111111 75%);
+            background-size: 200% 100%;
+            animation: loading-pulse 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        .skeleton-title {
+            width: 30%;
+            height: 24px;
+        }
+
+        .skeleton-text {
+            width: 100%;
+            height: 80px;
+        }
+
+        @keyframes loading-pulse {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>IPL Intelligence Assistant</h1>
+            <p class="subtitle">Query the LangGraph RAG framework dynamically</p>
+        </header>
+
+        <!-- Search Input Card -->
+        <main class="minimal-card">
+            <form id="qaForm" class="search-form">
+                <label for="queryInput">Enter your IPL 2024 season query</label>
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="queryInput" 
+                        placeholder="e.g., How many runs did Virat Kohli score in 2024?" 
+                        required
+                        autocomplete="off"
+                    >
+                </div>
+                <button type="submit" id="submitBtn">
+                    <span>Ask Assistant</span>
+                </button>
+            </form>
+
+            <!-- Loading Indicator -->
+            <div id="loader" class="loader">
+                <div class="skeleton skeleton-title"></div>
+                <div class="skeleton skeleton-text"></div>
+            </div>
+
+            <!-- Query Answer Area -->
+            <div id="results" class="results-container">
+                <hr style="border: 0; border-top: 1px solid var(--card-border); margin: 1.5rem 0;">
+                
+                <div>
+                    <h3 class="response-header">Generated Answer</h3>
+                    <div id="answerText" class="answer-text"></div>
+                </div>
+
+                <div class="context-section">
+                    <h4 class="context-title">Retrieved Reference Documents</h4>
+                    <div id="docsGrid" class="docs-grid"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Frontend Interactive Javascript Logic -->
+    <script>
+        document.getElementById('qaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const queryInput = document.getElementById('queryInput');
+            const submitBtn = document.getElementById('submitBtn');
+            const loader = document.getElementById('loader');
+            const results = document.getElementById('results');
+            const answerText = document.getElementById('answerText');
+            const docsGrid = document.getElementById('docsGrid');
+
+            const query = queryInput.value.trim();
+            if (!query) return;
+
+            // Trigger loading animation states
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.7';
+            loader.style.display = 'flex';
+            results.style.display = 'none';
+            docsGrid.innerHTML = '';
+
+            try {
+                // Call uvicorn FastAPI backend server endpoint
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+
+                if (!response.ok) {
+                    throw new Error('API server returned an error');
+                }
+
+                const data = await response.json();
+
+                // Inject response answer
+                answerText.innerHTML = formatMarkdown(data.response || 'No response generated.');
+
+                // Render retrieved document chunks dynamically into grid cards
+                if (data.documents && data.documents.length > 0) {
+                    data.documents.forEach(doc => {
+                        const card = document.createElement('div');
+                        card.className = 'doc-card';
+                        
+                        const badge = document.createElement('span');
+                        badge.className = 'doc-badge';
+                        badge.textContent = doc.section || 'General';
+
+                        const content = document.createElement('p');
+                        content.textContent = doc.text;
+
+                        card.appendChild(badge);
+                        card.appendChild(content);
+                        docsGrid.appendChild(card);
+                    });
+                } else {
+                    docsGrid.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No context documents were retrieved.</p>';
+                }
+
+                // Show completed results container
+                results.style.display = 'flex';
+
+            } catch (err) {
+                console.error(err);
+                answerText.innerHTML = `<span style="color: #ef4444; font-weight: 500;">Failed to fetch answer. Please make sure the backend server is running and key environments are configured.</span>`;
+                results.style.display = 'flex';
+            } finally {
+                // Disable loading animation states
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1.0';
+                loader.style.display = 'none';
+            }
+        });
+
+        // Basic helper function to parse basic markdown styles (bullet list bold markers)
+        function formatMarkdown(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\* (.*?)/g, '• $1')
+                .replace(/- (.*?)/g, '• $1');
+        }
+    </script>
+</body>
+</html>
