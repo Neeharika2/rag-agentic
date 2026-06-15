@@ -726,11 +726,136 @@ def router_node(state: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 # 9. Validation Node (Conflict Verification Node)
+# 9. Validation Node (Conflict Verification Node) Helper Functions
+def parse_attributes_from_text(text: str) -> Dict[str, str]:
+    """
+    Parses a text block of serialized key-value pairs using standard regex:
+    r"(\w[\w\s\-_\(\)]*):\s*([^\n,.]+)"
+    """
+    attrs = {}
+    matches = re.findall(r"(\w[\w\s\-_\(\)]*):\s*([^\n,.]+)", text)
+    for k, v in matches:
+        clean_k = k.strip().lower().replace(" ", "_")
+        clean_v = v.strip()
+        attrs[clean_k] = clean_v
+    return attrs
+
+def detect_conflicts_dynamically(all_docs: List[Document], target_companies: List[str]) -> Optional[Dict[str, Any]]:
+    """
+    Modular Python Verification Algorithm:
+    1. Extracts and groups entity key-value attributes from chunks.
+    2. Compares keys present in more than one chunk where source is official and portal.
+    3. Dynamically maps any detected value discrepancy.
+    """
+    companies_data = {}
+    
+    for doc in all_docs:
+        meta = doc.metadata or {}
+        text = doc.page_content or ""
+        
+        # Parse attributes from text and metadata
+        attrs = parse_attributes_from_text(text)
+        for k, v in meta.items():
+            clean_k = k.lower().replace(" ", "_")
+            attrs[clean_k] = str(v)
+            
+        company = attrs.get("company")
+        if not company:
+            continue
+            
+        norm_company = normalize_company_name(company)
+        norm_company_lower = norm_company.lower()
+        
+        # If target entities are defined, filter checking target companies only
+        if target_companies and norm_company_lower not in target_companies:
+            continue
+            
+        if norm_company not in companies_data:
+            companies_data[norm_company] = []
+            
+        # Determine source type based on section metadata
+        section = attrs.get("section", "")
+        source = "unknown"
+        if "section_1" in section:
+            source = "official"
+        elif "conflicting_information" in section:
+            source = "both"
+        elif "portal" in section or "portal" in text.lower():
+            source = "portal"
+            
+        attrs["_source"] = source
+        companies_data[norm_company].append(attrs)
+        
+    for company, records in companies_data.items():
+        # Check single-record conflicts (both values inside one chunk)
+        for r in records:
+            cgpa_off = r.get("cgpa_(official)") or r.get("cgpa_official") or r.get("official_cgpa")
+            cgpa_port = r.get("cgpa_(portal)") or r.get("cgpa_portal") or r.get("portal_cgpa")
+            pkg_off = r.get("package_official") or r.get("official_package") or r.get("package_(official)")
+            pkg_port = r.get("package_portal") or r.get("portal_package") or r.get("package_(portal)")
+            
+            if cgpa_off and cgpa_port and cgpa_off != cgpa_port:
+                return {
+                    "company": company,
+                    "metric": "Min CGPA",
+                    "official_value": cgpa_off,
+                    "portal_value": cgpa_port
+                }
+            if pkg_off and pkg_port and pkg_off != pkg_port:
+                return {
+                    "company": company,
+                    "metric": "Package",
+                    "official_value": pkg_off,
+                    "portal_value": pkg_port
+                }
+                
+        # Check cross-record conflicts (different values in official vs portal chunks)
+        official_cgpas = []
+        portal_cgpas = []
+        official_packages = []
+        portal_packages = []
+        
+        for r in records:
+            source = r.get("_source")
+            cgpa = r.get("min_cgpa") or r.get("avg_cgpa_cutoff") or r.get("cgpa")
+            pkg = r.get("package_(lpa)") or r.get("avg_package") or r.get("package")
+            
+            if source == "official":
+                if cgpa: official_cgpas.append(cgpa)
+                if pkg: official_packages.append(pkg)
+            elif source == "portal":
+                if cgpa: portal_cgpas.append(cgpa)
+                if pkg: portal_packages.append(pkg)
+                
+        # Compare official vs portal values
+        if official_cgpas and portal_cgpas:
+            for off in official_cgpas:
+                for port in portal_cgpas:
+                    if off != port:
+                        return {
+                            "company": company,
+                            "metric": "Min CGPA",
+                            "official_value": off,
+                            "portal_value": port
+                        }
+        if official_packages and portal_packages:
+            for off in official_packages:
+                for port in portal_packages:
+                    if off != port:
+                        return {
+                            "company": company,
+                            "metric": "Package",
+                            "official_value": off,
+                            "portal_value": port
+                        }
+                        
+    return None
+
 def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     ValidationNode: Dynamic conflict verification.
     Scans retrieved chunks across contexts, checks for value discrepancies,
-    and sets conflict_detected/conflict_details dynamically.
+    and sets conflict_detected/conflict_details dynamically using modular helpers.
     """
     # Gather all contexts
     all_docs = []
@@ -750,82 +875,11 @@ def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
         except Exception as e:
             print(f"[*] Info: Could not retrieve conflict documents: {e}")
             
-    conflict_detected = False
-    conflict_details = None
-    
-    # Check for direct conflict metadata in the retrieved documents
     target_companies = [c.lower() for c in state.get("entities", [])]
-    for doc in all_docs:
-        meta = doc.metadata
-        if not meta:
-            continue
-            
-        company = meta.get("company", "")
-        # If target entities are defined, only check conflicts for target companies
-        if target_companies and normalize_company_name(company).lower() not in target_companies:
-            continue
-            
-        # Check if this document comes from the conflict section or contains explicit official/portal mismatches
-        if "cgpa_(official)" in meta and "cgpa_(portal)" in meta:
-            cgpa_off = meta["cgpa_(official)"]
-            cgpa_port = meta["cgpa_(portal)"]
-            pkg_off = meta.get("package_official", "")
-            pkg_port = meta.get("package_portal", "")
-            
-            # Mismatch detection
-            if cgpa_off != cgpa_port or pkg_off != pkg_port:
-                conflict_detected = True
-                metrics = []
-                if cgpa_off != cgpa_port:
-                    metrics.append(f"Min CGPA (Official: {cgpa_off} vs Portal: {cgpa_port})")
-                if pkg_off != pkg_port:
-                    metrics.append(f"Package (Official: {pkg_off} vs Portal: {pkg_port})")
-                    
-                conflict_details = {
-                    "company": company,
-                    "metric": ", ".join(metrics),
-                    "official_value": f"CGPA: {cgpa_off}, Package: {pkg_off}",
-                    "portal_value": f"CGPA: {cgpa_port}, Package: {pkg_port}"
-                }
-                break # We found the matched conflict, stop scanning
-                
-    # If no explicit conflict keys, check for discrepancies by comparing eligibility profiles
-    if not conflict_detected:
-        companies_data = {}
-        for doc in all_docs:
-            meta = doc.metadata
-            if not meta or meta.get("type") != "tabular":
-                continue
-            comp = meta.get("company")
-            if not comp:
-                continue
-            
-            norm_comp = normalize_company_name(comp)
-            if norm_comp not in companies_data:
-                companies_data[norm_comp] = []
-            companies_data[norm_comp].append(meta)
-            
-        for comp, metas_list in companies_data.items():
-            cgpa_vals = set()
-            pkg_vals = set()
-            for m in metas_list:
-                cgpa = m.get("min_cgpa") or m.get("avg_cgpa_cutoff")
-                pkg = m.get("package_(lpa)") or m.get("avg_package") or m.get("package_official")
-                if cgpa:
-                    cgpa_vals.add(str(cgpa))
-                if pkg:
-                    pkg_vals.add(str(pkg))
-                    
-            if len(cgpa_vals) > 1 or len(pkg_vals) > 1:
-                conflict_detected = True
-                conflict_details = {
-                    "company": comp,
-                    "metric": "CGPA or Package Discrepancy",
-                    "official_value": list(cgpa_vals)[0] if cgpa_vals else "N/A",
-                    "portal_value": list(cgpa_vals)[1] if len(cgpa_vals) > 1 else "N/A"
-                }
-                break
-
+    
+    conflict_details = detect_conflicts_dynamically(all_docs, target_companies)
+    conflict_detected = conflict_details is not None
+    
     # If we retrieved conflict docs, append them to eligibility_context so synthesis gets them
     ret_dict = {
         "conflict_detected": conflict_detected,
