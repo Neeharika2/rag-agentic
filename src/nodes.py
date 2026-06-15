@@ -5,16 +5,38 @@ from langchain_core.documents import Document
 from src.vectorstore.chroma_store import ChromaStore
 
 # 1. Canonical Company Names
-CANONICAL_COMPANIES = [
-    "Accenture", "Adobe", "Amazon", "Capgemini", "Cognizant", 
-    "Deloitte", "Flipkart", "Google", "HCL", "IBM", 
-    "Infosys", "Intel", "Microsoft", "Oracle", "Qualcomm", 
-    "SAP", "Samsung R&D;", "TCS", "Tech Mahindra", "Wipro"
-]
+_CANONICAL_COMPANIES_CACHE = None
+_ALIAS_RESOLVER_CACHE = {}
+
+def get_canonical_companies() -> List[str]:
+    """
+    Dynamically retrieves all unique company names from the ChromaDB collection.
+    Results are cached in memory to avoid redundant database reads.
+    """
+    global _CANONICAL_COMPANIES_CACHE
+    if _CANONICAL_COMPANIES_CACHE is not None:
+        return _CANONICAL_COMPANIES_CACHE
+        
+    try:
+        store = get_chroma_store()
+        # Retrieve all documents to extract unique company names from metadata
+        results = store.collection.get(include=["metadatas"])
+        metadatas = results.get("metadatas", [])
+        companies = set()
+        for meta in metadatas:
+            if meta and "company" in meta:
+                companies.add(meta["company"])
+        if companies:
+            _CANONICAL_COMPANIES_CACHE = sorted(list(companies))
+            return _CANONICAL_COMPANIES_CACHE
+    except Exception as e:
+        print(f"[*] Info: Could not get canonical companies from DB dynamically: {e}")
+    return []
 
 def normalize_company_name(name: str) -> str:
     """
     Fuzzy-matches and normalizes company name variations to canonical database keys.
+    Uses substring overlap, acronym checks, and dynamic Chroma DB lookups to avoid hardcoding.
     """
     if not name:
         return ""
@@ -25,23 +47,53 @@ def normalize_company_name(name: str) -> str:
     name_clean = name_clean.replace(" corporation", "").replace(" inc", "").replace(" llc", "").replace(" services", "")
     name_clean = name_clean.strip()
     
-    # Handle specific common mappings
-    if "samsung" in name_clean:
-        return "Samsung R&D;"
-    if "tata" in name_clean or name_clean == "tcs":
-        return "TCS"
-    if "techm" in name_clean or "mahindra" in name_clean:
-        return "Tech Mahindra"
-    if name_clean == "capgemini":
-        return "Capgemini"
+    canonical_companies = get_canonical_companies()
     
-    # Check if name is a substring of canonical name, or vice versa
-    for c in CANONICAL_COMPANIES:
+    # 1. Check exact or substring overlap (case-insensitive)
+    for c in canonical_companies:
         c_clean = c.lower().replace(";", "").replace("&", "and")
         clean_target = name_clean.replace("&", "and")
-        if c_clean in clean_target or clean_target in c_clean:
+        if clean_target and (clean_target in c_clean or c_clean in clean_target):
             return c
             
+    # 2. Check for initials/acronym matching (e.g., Tech Mahindra -> tm or techm)
+    for c in canonical_companies:
+        c_clean = c.lower().replace(";", "").replace("&", "and")
+        c_words = [w for w in re.split(r'[^a-zA-Z0-9]', c_clean) if w]
+        acronym = "".join([w[0] for w in c_words])
+        if name_clean == acronym:
+            return c
+        if len(c_words) >= 2:
+            prefix_acronym = c_words[0] + c_words[1][0] # e.g. "tech" + "m" = "techm"
+            if name_clean == prefix_acronym:
+                return c
+                
+    # 3. Fallback: Query LLM dynamically to resolve alias to one of the canonical companies
+    global _ALIAS_RESOLVER_CACHE
+    if name_clean in _ALIAS_RESOLVER_CACHE:
+        return _ALIAS_RESOLVER_CACHE[name_clean]
+        
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
+        canonical_list_str = ", ".join(canonical_companies)
+        prompt = (
+            f"You are a company name normalizer.\n"
+            f"Given the user-specified company alias/variation: '{name}'\n"
+            f"And the list of canonical companies: [{canonical_list_str}]\n"
+            f"Determine if the user query refers to one of the canonical companies in the list.\n"
+            f"If it does, output ONLY the exact canonical company name from the list. "
+            f"If it does not, output ONLY the original name '{name}'.\n"
+            f"Do not include any explanation, punctuation, or other text."
+        )
+        response = llm.invoke(prompt)
+        resolved_name = response.content.strip()
+        if resolved_name in canonical_companies:
+            _ALIAS_RESOLVER_CACHE[name_clean] = resolved_name
+            return resolved_name
+    except Exception as e:
+        print(f"[*] Info: Dynamic LLM alias resolution failed for '{name}': {e}")
+        
     return name
 
 def get_chroma_store() -> ChromaStore:
@@ -62,7 +114,8 @@ def eligibility_node(state: Dict[str, Any]) -> Dict[str, Any]:
     
     # If no entities in state, try to scan query for company mentions
     if not entities:
-        for c in CANONICAL_COMPANIES:
+        canonical_companies = get_canonical_companies()
+        for c in canonical_companies:
             clean_c = c.replace(";", "")
             if clean_c.lower() in query.lower():
                 entities.append(c)
@@ -185,7 +238,8 @@ def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
     
     # Try to scan query for company mentions
     if not entities:
-        for c in CANONICAL_COMPANIES:
+        canonical_companies = get_canonical_companies()
+        for c in canonical_companies:
             clean_c = c.replace(";", "")
             if clean_c.lower() in query.lower():
                 entities.append(c)
@@ -237,16 +291,32 @@ def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     
     store = get_chroma_store()
     
-    # 1. Detect target hiring role
+    # 3. Retrieve and parse hiring data to dynamically extract available roles
+    hiring_results = store.collection.get(where={"section": "hiring_distribution_data_table_(text_representation_of_all_charts_above)"})
+    docs = hiring_results["documents"]
+    metas = hiring_results["metadatas"]
+
+    # 1. Detect target hiring role dynamically based on metadata keys
     role = None
-    if "intern" in query.lower():
-        role = "intern"
-    elif "sde" in query.lower() or "software" in query.lower():
-        role = "sde"
-    elif "analyst" in query.lower():
-        role = "analyst"
-    elif "officer" in query.lower():
-        role = "officer"
+    available_roles = set()
+    for meta in metas:
+        for key in meta.keys():
+            if key not in ["company", "section", "type"]:
+                available_roles.add(key.lower())
+                
+    for r in available_roles:
+        if r in query.lower():
+            role = r
+            break
+            
+    # Fallback synonym matching for common role terms if no direct match found
+    if not role:
+        if "software" in query.lower() or "developer" in query.lower():
+            if "sde" in available_roles:
+                role = "sde"
+        elif "internship" in query.lower():
+            if "intern" in available_roles:
+                role = "intern"
         
     # 2. Check if join query (e.g. Python-focused company)
     python_companies = []
@@ -265,18 +335,14 @@ def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # Also check sections with python focus
         results = store.collection.get(include=["metadatas"])
         all_sections = list(set([m["section"] for m in results["metadatas"] if "section" in m]))
+        canonical_companies = get_canonical_companies()
         for sec in all_sections:
             if sec.startswith("n_") and "technical_focus" in sec and "python" in sec.lower():
-                for c in CANONICAL_COMPANIES:
+                for c in canonical_companies:
                     if c.lower() in sec.lower():
                         python_companies.append(normalize_company_name(c))
                         
         python_companies = list(set(python_companies))
-        
-    # 3. Retrieve and parse hiring data
-    hiring_results = store.collection.get(where={"section": "hiring_distribution_data_table_(text_representation_of_all_charts_above)"})
-    docs = hiring_results["documents"]
-    metas = hiring_results["metadatas"]
     
     hiring_records = []
     for doc, meta in zip(docs, metas):
@@ -336,7 +402,8 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     entities = state.get("entities", [])
     
     if not entities:
-        for c in CANONICAL_COMPANIES:
+        canonical_companies = get_canonical_companies()
+        for c in canonical_companies:
             clean_c = c.replace(";", "")
             if clean_c.lower() in query.lower():
                 entities.append(c)
@@ -435,23 +502,52 @@ def trend_node(state: Dict[str, Any]) -> Dict[str, Any]:
     metas = results["metadatas"]
     
     parsed_trends = []
+    min_year, max_year = None, None
     for doc, meta in zip(docs, metas):
         if meta.get("type") != "tabular":
             continue
         comp = meta.get("company", "")
         if not comp:
             continue
+            
+        # Extract all year keys dynamically (e.g. "2021_(lpa)", "2024")
+        year_keys = []
+        for key in meta.keys():
+            match = re.search(r"(\d{4})", key)
+            if match:
+                try:
+                    year_val = int(match.group(1))
+                    year_keys.append((year_val, key))
+                except ValueError:
+                    continue
+                    
+        if len(year_keys) < 2:
+            continue
+            
+        # Find the earliest and latest years in the dataset
+        year_keys.sort()
+        earliest_yr_val, earliest_key = year_keys[0]
+        latest_yr_val, latest_key = year_keys[-1]
+        
+        # Keep track of years for the summary header/text
+        if min_year is None or earliest_yr_val < min_year:
+            min_year = earliest_yr_val
+        if max_year is None or latest_yr_val > max_year:
+            max_year = latest_yr_val
+            
         try:
-            pkg_2021 = float(meta.get("2021_(lpa)", 0.0))
-            pkg_2024 = float(meta.get("2024_(lpa)", 0.0))
+            pkg_earliest = float(meta.get(earliest_key, 0.0))
+            pkg_latest = float(meta.get(latest_key, 0.0))
         except (ValueError, TypeError):
             continue
             
-        growth = pkg_2024 - pkg_2021
+        growth = pkg_latest - pkg_earliest
         parsed_trends.append({
             "company": comp,
-            "2021": pkg_2021,
-            "2024": pkg_2024,
+            "earliest_year": earliest_yr_val,
+            "latest_year": latest_yr_val,
+            "earliest_pkg": pkg_earliest,
+            "latest_pkg": pkg_latest,
             "growth": growth,
             "text": doc,
             "meta": meta
@@ -460,9 +556,13 @@ def trend_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # Sort by growth descending
     parsed_trends.sort(key=lambda x: x["growth"], reverse=True)
     
-    summary_text = "Python Trend Analysis (Growth 2021 to 2024):\n"
+    # Use fallback labels if no years were dynamically parsed
+    start_label = str(min_year) if min_year is not None else "Start Year"
+    end_label = str(max_year) if max_year is not None else "End Year"
+    
+    summary_text = f"Python Trend Analysis (Growth {start_label} to {end_label}):\n"
     for idx, t in enumerate(parsed_trends):
-        summary_text += f"{idx+1}. {t['company']}: Absolute Growth = {t['growth']:.2f} LPA (2021: {t['2021']} LPA -> 2024: {t['2024']} LPA)\n"
+        summary_text += f"{idx+1}. {t['company']}: Absolute Growth = {t['growth']:.2f} LPA ({t['earliest_year']}: {t['earliest_pkg']} LPA -> {t['latest_year']}: {t['latest_pkg']} LPA)\n"
         
     summary_doc = Document(
         page_content=summary_text,

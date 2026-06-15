@@ -8,8 +8,8 @@ from src.rag_pipeline import build_rag_graph
 
 # Initialize FastAPI application
 app = FastAPI(
-    title="IPL Intelligence Assistant API",
-    description="Backend API powering the LangGraph RAG IPL assistant",
+    title="Placement Intelligence Assistant API",
+    description="Backend API powering the LangGraph RAG Placement assistant",
     version="1.0.0"
 )
 

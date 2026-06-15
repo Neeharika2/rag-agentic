@@ -99,10 +99,10 @@ def generate_node(state: RAGState) -> Dict[str, Any]:
         for i, doc in enumerate(documents)
     ])
     
-    # Define a clean instruction prompt for the IPL Assistant
+    # Define a clean instruction prompt for the Placement Assistant
     prompt_template = ChatPromptTemplate.from_messages([
         ("system", (
-            "You are an expert IPL Assistant. Answer the user query using the provided context context below. "
+            "You are an expert Placement Assistant. Answer the user query using the provided context below. "
             "If you cannot answer from the context, rely on your internal knowledge but clearly state that "
             "the source is not in the provided context documents.\n\n"
             "Context:\n{context}"

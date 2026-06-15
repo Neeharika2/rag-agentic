@@ -25,14 +25,14 @@ def run_cli(query: str):
 def run_web():
     """Starts the FastAPI Web server using uvicorn."""
     print("==================================================")
-    print("[*] Starting IPL Intelligence Assistant Web Server...")
+    print("[*] Starting Placement Intelligence Assistant Web Server...")
     print("[*] Open the interface in your browser: http://127.0.0.1:8000")
     print("==================================================")
     uvicorn.run("src.web_app:app", host="127.0.0.1", port=8000, reload=True)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="IPL Intelligence Assistant - Unified Runner"
+        description="Placement Intelligence Assistant - Unified Runner"
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -60,7 +60,7 @@ def main():
         query_str = " ".join(args.query)
         run_cli(query_str)
     elif args.cli:
-        default_query = "Tell me about Virat Kohli's performance in 2024"
+        default_query = "Which company has the highest package?"
         run_cli(default_query)
     else:
         run_web()
