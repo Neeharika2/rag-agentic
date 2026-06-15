@@ -40,22 +40,34 @@ async def query_endpoint(request: QueryRequest):
         raise HTTPException(status_code=400, detail="Query string cannot be empty")
         
     try:
-        # Construct graph initial state
-        initial_state = {"query": query_str}
+        # Construct graph initial state supporting both user_query and backward-compatible query key
+        initial_state = {
+            "user_query": query_str,
+            "query": query_str
+        }
         
         # Invoke the state graph synchronously
         final_state = rag_graph.invoke(initial_state)
         
         # Format list of retrieved document chunks for response JSON
         docs_response = []
-        for doc in final_state.get("documents", []):
+        # Collect retrieved documents across all active capability context lists
+        all_docs = []
+        for field in ["eligibility_context", "interview_context", "hiring_context", "stats_context", "trend_context"]:
+            if final_state.get(field):
+                all_docs.extend(final_state[field])
+                
+        for doc in all_docs:
             docs_response.append(DocumentResponse(
                 text=doc.page_content,
                 section=doc.metadata.get("section", "general")
             ))
             
+        # Get final answer or backward-compatible response field
+        response_text = final_state.get("final_answer") or final_state.get("response") or "No response generated."
+            
         return QueryResponse(
-            response=final_state.get("response", "No response generated."),
+            response=response_text,
             documents=docs_response
         )
     except Exception as e:

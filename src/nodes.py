@@ -1,6 +1,7 @@
 import os
 import re
 from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, Field
 from langchain_core.documents import Document
 from src.vectorstore.chroma_store import ChromaStore
 
@@ -72,6 +73,9 @@ def normalize_company_name(name: str) -> str:
     global _ALIAS_RESOLVER_CACHE
     if name_clean in _ALIAS_RESOLVER_CACHE:
         return _ALIAS_RESOLVER_CACHE[name_clean]
+        
+    if not (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")):
+        return name
         
     try:
         from langchain_google_genai import ChatGoogleGenerativeAI
@@ -318,31 +322,64 @@ def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
             if "intern" in available_roles:
                 role = "intern"
         
-    # 2. Check if join query (e.g. Python-focused company)
-    python_companies = []
-    is_python_query = "python" in query.lower()
-    
-    if is_python_query:
-        # Dynamic check in eligibility profiles for Python tech focus or key topics
-        elig_results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
-        for meta in elig_results["metadatas"]:
+    # 2. Check if join query (e.g. tech-focused company join query)
+    # Collect candidate tech focus terms dynamically from the metadata
+    tech_candidates = set()
+    elig_results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+    for meta in elig_results.get("metadatas", []):
+        for field in ["tech_focus", "key_topics"]:
+            val = meta.get(field)
+            if val:
+                tech_candidates.add(val.strip().lower())
+                parts = re.split(r'[,/;]', val)
+                for part in parts:
+                    p_clean = part.strip().lower()
+                    if p_clean:
+                        tech_candidates.add(p_clean)
+
+    target_tech = None
+    sorted_candidates = sorted(list(tech_candidates), key=len, reverse=True)
+    for cand in sorted_candidates:
+        if cand in ["dsa", "aptitude"]:  # skip generic terms to avoid false joins
+            continue
+        pattern = r'\b' + re.escape(cand) + r'\b'
+        if cand == "c++":
+            pattern = r'(?:^|\s)c\+\+(?:\s|$|\b|[.,;])'
+        if re.search(pattern, query.lower()):
+            target_tech = cand
+            break
+
+    tech_companies = []
+    if target_tech:
+        # Dynamic check in eligibility profiles for tech focus or key topics
+        for meta in elig_results.get("metadatas", []):
             company = meta.get("company", "")
-            tech_focus = meta.get("tech_focus", "").lower()
-            key_topics = meta.get("key_topics", "").lower()
-            if "python" in tech_focus or "python" in key_topics:
-                python_companies.append(normalize_company_name(company))
+            tech_focus = (meta.get("tech_focus") or "").lower()
+            key_topics = (meta.get("key_topics") or "").lower()
+            if target_tech in tech_focus or target_tech in key_topics:
+                tech_companies.append(normalize_company_name(company))
                 
-        # Also check sections with python focus
+        # Also check sections with the target tech focus
         results = store.collection.get(include=["metadatas"])
         all_sections = list(set([m["section"] for m in results["metadatas"] if "section" in m]))
         canonical_companies = get_canonical_companies()
         for sec in all_sections:
-            if sec.startswith("n_") and "technical_focus" in sec and "python" in sec.lower():
+            if sec.startswith("n_") and "technical_focus" in sec and target_tech in sec.lower():
                 for c in canonical_companies:
                     if c.lower() in sec.lower():
-                        python_companies.append(normalize_company_name(c))
+                        tech_companies.append(normalize_company_name(c))
                         
-        python_companies = list(set(python_companies))
+        # Check interview_context if present to find companies associated with the tech focus
+        interview_context = state.get("interview_context", [])
+        for doc in interview_context:
+            meta = doc.metadata
+            if meta:
+                comp = meta.get("company")
+                sec = meta.get("section", "").lower()
+                if comp and (target_tech in sec or target_tech in doc.page_content.lower()):
+                    tech_companies.append(normalize_company_name(comp))
+                        
+        tech_companies = list(set(tech_companies))
     
     hiring_records = []
     for doc, meta in zip(docs, metas):
@@ -351,8 +388,8 @@ def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
         comp = meta.get("company", "")
         norm_comp = normalize_company_name(comp)
         
-        # Apply Python-focused filter if join query
-        if is_python_query and norm_comp not in python_companies:
+        # Apply tech-focused filter if join query
+        if target_tech and norm_comp not in tech_companies:
             continue
             
         hiring_records.append((doc, meta, norm_comp))
@@ -573,3 +610,330 @@ def trend_node(state: Dict[str, Any]) -> Dict[str, Any]:
     return_docs.append(summary_doc)
     
     return {"trend_context": return_docs}
+
+# 7. Helper Rule-Based Router (For Offline/Fallback Intent & Entity Extraction)
+def rule_based_router(query: str) -> dict:
+    query_lower = query.lower()
+    q_type = "eligibility" # default
+    
+    # 1. Conflict detection (check for conflict keywords, or multiple numbers with 'or'/'vs'/'versus')
+    numbers = re.findall(r"\b\d+(?:\.\d+)?\b", query_lower)
+    has_conflict_keywords = any(x in query_lower for x in ["conflict", "contradict", "different data", "differing data", "discrepancy", "mismatch", "error", "correct"])
+    has_multi_numbers = len(set(numbers)) >= 2 and any(x in query_lower for x in ["or", "vs", "versus", "between"])
+    
+    if has_conflict_keywords or (has_multi_numbers and any(x in query_lower for x in ["cgpa", "cutoff", "package", "lpa", "salary", "pay"])):
+        q_type = "conflict"
+    # 2. Trend detection (check for growth/trend keywords or two years mentioned)
+    elif any(x in query_lower for x in ["grew", "growth", "trend", "temporal", "increase", "decrease", "change", "rise", "over time", "comparison"]) or len(re.findall(r"\b20\d{2}\b", query_lower)) >= 2:
+        q_type = "trend"
+    # 3. Statistics detection (check for mathematical/ratio terms)
+    elif any(x in query_lower for x in ["ratio", "package-to-cgpa", "package to cgpa", "package/cgpa", "offers", "min_offers", "max_offers", "avg_package", "average", "statistics", "stats"]):
+        q_type = "statistics"
+    # 4. Hiring stats detection (check for hiring role terms)
+    elif any(x in query_lower for x in ["intern", "sde", "analyst", "officer", "hiring", "hires", "hired", "recruit", "recruitment"]):
+        q_type = "hiring"
+    # 5. Interview preparation detection (check for interview/rounds/focus terms)
+    elif any(x in query_lower for x in ["round", "rounds", "topic", "topics", "focus", "prepare", "interview", "preparation", "tech", "focus", "subject"]):
+        q_type = "interview_prep"
+    # 6. Fallback/Out of corpus detection (questions about date, stock, visit, world, career etc.)
+    elif any(x in query_lower for x in ["date", "visit", "stock", "price", "world", "career", "when"]):
+        q_type = "fallback"
+    # 7. Eligibility (default or specific keywords)
+    elif any(x in query_lower for x in ["eligibility", "cgpa", "cutoff", "backlog", "backlogs", "bond", "require", "criteria"]):
+        q_type = "eligibility"
+        
+    # Dynamic rule-based entity extractor
+    entities = []
+    canonical_companies = get_canonical_companies()
+    
+    # Split query into words and clean them
+    query_words = re.findall(r'[a-zA-Z0-9&]+', query_lower)
+    
+    for word in query_words:
+        # Avoid matching short/common words that might clash or cause false matches
+        if len(word) < 2 or word in [
+            'in', 'of', 'for', 'to', 'is', 'it', 'or', 'and', 'the', 'who', 'how', 
+            'any', 'all', 'a', 'an', 'at', 'with', 'about', 'what', 'which', 'where',
+            'c++', 'java', 'dsa', 'os', 'dbms', 'oops', 'rounds', 'round', 'cutoff', 'cutoffs'
+        ]:
+            continue
+            
+        # Try to normalize this word to a canonical company name
+        normalized = normalize_company_name(word)
+        if normalized in canonical_companies:
+            if normalized not in entities:
+                entities.append(normalized)
+                
+    return {"query_type": q_type, "entities": entities}
+
+# 8. Router Node
+def router_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    RouterNode: Uses LLM with structured output to classify user query intents and extract entities.
+    Falls back to a robust rule-based parser if LLM execution fails.
+    """
+    query = state.get("user_query") or state.get("query") or ""
+    
+    # Initialize result structure
+    query_type = "eligibility"
+    entities = []
+    
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        from pydantic import BaseModel, Field
+        from typing import List
+        
+        class RouterOutput(BaseModel):
+            query_type: str = Field(description="Intent class of the query. Must be one of: 'eligibility', 'interview_prep', 'hiring', 'statistics', 'trend', 'conflict', 'fallback'")
+            entities: List[str] = Field(description="List of company names extracted and normalized from the query. Convert variation names to their normalized canonical forms.")
+
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
+        structured_llm = llm.with_structured_output(RouterOutput)
+        
+        canonical_companies = get_canonical_companies()
+        canonical_list_str = ", ".join(canonical_companies)
+        
+        prompt = (
+            f"Analyze the following user placement query and determine the intent classification and extract entities.\n\n"
+            f"Query: '{query}'\n\n"
+            f"Canonical Company List: [{canonical_list_str}]\n\n"
+            f"Instructions:\n"
+            f"1. Classify the query intent into one of the following classes:\n"
+            f"   - 'eligibility': Questions about cutoffs, GPA, active backlogs, bonds, and package thresholds.\n"
+            f"   - 'interview_prep': Questions about selection rounds, topics, technical focus, preparing.\n"
+            f"   - 'hiring': Questions about counts of hires, software development roles, intern/analyst count rankings.\n"
+            f"   - 'statistics': Placement statistics aggregations, averages, or ratios (e.g. package-to-CGPA).\n"
+            f"   - 'trend': Temporal reasoning or package comparisons across multiple years (e.g. 2021 to 2024 growth).\n"
+            f"   - 'conflict': Explicit conflict or discrepancy questions (e.g. 'Is Amazon cutoff 6.4 or 7.0?', 'conflicting data').\n"
+            f"   - 'fallback': Out of corpus, stock prices, subjective opinions, or vague/unrelated queries.\n\n"
+            f"2. Extract company names mentioned. Resolve aliases to match exactly the canonical companies in the list."
+        )
+        
+        result = structured_llm.invoke(prompt)
+        query_type = result.query_type
+        entities = result.entities
+    except Exception as e:
+        print(f"[*] Info: Router LLM structured call failed: {e}")
+        print("[*] Falling back to rule-based classification...")
+        # Fallback to rule-based routing
+        rule_res = rule_based_router(query)
+        query_type = rule_res["query_type"]
+        entities = rule_res["entities"]
+        
+    return {
+        "query_type": query_type,
+        "entities": entities
+    }
+
+# 9. Validation Node (Conflict Verification Node)
+def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    ValidationNode: Dynamic conflict verification.
+    Scans retrieved chunks across contexts, checks for value discrepancies,
+    and sets conflict_detected/conflict_details dynamically.
+    """
+    # Gather all contexts
+    all_docs = []
+    for field in ["eligibility_context", "interview_context", "hiring_context", "stats_context", "trend_context"]:
+        if state.get(field):
+            all_docs.extend(state[field])
+            
+    # If query type is conflict, dynamically query the conflict section from Chroma DB
+    q_type = state.get("query_type")
+    conflict_docs = []
+    if q_type == "conflict" or "conflict" in (state.get("user_query") or "").lower():
+        try:
+            store = get_chroma_store()
+            conflict_results = store.collection.get(where={"section": "n_rag_challenge_-_conflicting_information"})
+            conflict_docs = [Document(page_content=d, metadata=m) for d, m in zip(conflict_results["documents"], conflict_results["metadatas"])]
+            all_docs.extend(conflict_docs)
+        except Exception as e:
+            print(f"[*] Info: Could not retrieve conflict documents: {e}")
+            
+    conflict_detected = False
+    conflict_details = None
+    
+    # Check for direct conflict metadata in the retrieved documents
+    target_companies = [c.lower() for c in state.get("entities", [])]
+    for doc in all_docs:
+        meta = doc.metadata
+        if not meta:
+            continue
+            
+        company = meta.get("company", "")
+        # If target entities are defined, only check conflicts for target companies
+        if target_companies and normalize_company_name(company).lower() not in target_companies:
+            continue
+            
+        # Check if this document comes from the conflict section or contains explicit official/portal mismatches
+        if "cgpa_(official)" in meta and "cgpa_(portal)" in meta:
+            cgpa_off = meta["cgpa_(official)"]
+            cgpa_port = meta["cgpa_(portal)"]
+            pkg_off = meta.get("package_official", "")
+            pkg_port = meta.get("package_portal", "")
+            
+            # Mismatch detection
+            if cgpa_off != cgpa_port or pkg_off != pkg_port:
+                conflict_detected = True
+                metrics = []
+                if cgpa_off != cgpa_port:
+                    metrics.append(f"Min CGPA (Official: {cgpa_off} vs Portal: {cgpa_port})")
+                if pkg_off != pkg_port:
+                    metrics.append(f"Package (Official: {pkg_off} vs Portal: {pkg_port})")
+                    
+                conflict_details = {
+                    "company": company,
+                    "metric": ", ".join(metrics),
+                    "official_value": f"CGPA: {cgpa_off}, Package: {pkg_off}",
+                    "portal_value": f"CGPA: {cgpa_port}, Package: {pkg_port}"
+                }
+                break # We found the matched conflict, stop scanning
+                
+    # If no explicit conflict keys, check for discrepancies by comparing eligibility profiles
+    if not conflict_detected:
+        companies_data = {}
+        for doc in all_docs:
+            meta = doc.metadata
+            if not meta or meta.get("type") != "tabular":
+                continue
+            comp = meta.get("company")
+            if not comp:
+                continue
+            
+            norm_comp = normalize_company_name(comp)
+            if norm_comp not in companies_data:
+                companies_data[norm_comp] = []
+            companies_data[norm_comp].append(meta)
+            
+        for comp, metas_list in companies_data.items():
+            cgpa_vals = set()
+            pkg_vals = set()
+            for m in metas_list:
+                cgpa = m.get("min_cgpa") or m.get("avg_cgpa_cutoff")
+                pkg = m.get("package_(lpa)") or m.get("avg_package") or m.get("package_official")
+                if cgpa:
+                    cgpa_vals.add(str(cgpa))
+                if pkg:
+                    pkg_vals.add(str(pkg))
+                    
+            if len(cgpa_vals) > 1 or len(pkg_vals) > 1:
+                conflict_detected = True
+                conflict_details = {
+                    "company": comp,
+                    "metric": "CGPA or Package Discrepancy",
+                    "official_value": list(cgpa_vals)[0] if cgpa_vals else "N/A",
+                    "portal_value": list(cgpa_vals)[1] if len(cgpa_vals) > 1 else "N/A"
+                }
+                break
+
+    # If we retrieved conflict docs, append them to eligibility_context so synthesis gets them
+    ret_dict = {
+        "conflict_detected": conflict_detected,
+        "conflict_details": conflict_details
+    }
+    if conflict_docs:
+        ret_dict["eligibility_context"] = (state.get("eligibility_context") or []) + conflict_docs
+        
+    return ret_dict
+
+# 10. Synthesis Node
+def synthesis_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    SynthesisNode: Compiles the final fact-anchored answer using retrieved contexts
+    and appropriate source citations, incorporating conflict notifications if present.
+    """
+    query = state.get("user_query") or state.get("query") or ""
+    conflict_detected = state.get("conflict_detected", False)
+    conflict_details = state.get("conflict_details")
+    
+    # Gather all active context documents
+    all_docs = []
+    for field in ["eligibility_context", "interview_context", "hiring_context", "stats_context", "trend_context"]:
+        if state.get(field):
+            all_docs.extend(state[field])
+            
+    # If no contexts are found and we did a RAG retrieval, check out-of-corpus fallback
+    if not all_docs:
+        query_lower = query.lower()
+        if any(x in query_lower for x in ["date", "visit", "stock", "price", "world", "career", "join"]):
+            final_answer = "I apologize, but this information is not available in the Placement RAG dataset."
+            return {
+                "final_answer": final_answer,
+                "sources": [],
+                "confidence": 0.2
+            }
+            
+    context_str = "\n\n".join([
+        f"Document {i+1} [Section: {doc.metadata.get('section', 'general')}]:\n{doc.page_content}"
+        for i, doc in enumerate(all_docs)
+    ])
+    
+    # Select prompt strategy based on conflict status
+    if conflict_detected and conflict_details:
+        system_prompt = (
+            f"You are an expert Placement Assistant compiling a final answer.\n"
+            f"A placement data conflict has been detected:\n"
+            f"Company: {conflict_details.get('company')}\n"
+            f"Metric: {conflict_details.get('metric')}\n"
+            f"Official Value: {conflict_details.get('official_value')}\n"
+            f"Portal Value: {conflict_details.get('portal_value')}\n\n"
+            f"Instructions:\n"
+            f"1. Cite both the official source and the placement portal source.\n"
+            f"2. Present the official source as the primary authority.\n"
+            f"3. Clearly notify the user of the discrepancy (e.g., 'There are conflicting records...') "
+            f"and explicitly advise them to verify the criteria with the official placement cell."
+        )
+    else:
+        system_prompt = (
+            "You are an expert Placement Assistant. Answer the user query using the provided context below. "
+            "Rely strictly on the facts present in the contexts. If the context does not contain the answer, "
+            "clearly state that the source is not in the provided documents and decline to answer.\n\n"
+            "Contexts:\n"
+            f"{context_str}"
+        )
+        
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
+        from langchain_core.prompts import ChatPromptTemplate
+        
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            ("user", "{query}")
+        ])
+        chain = prompt_template | llm
+        response = chain.invoke({"query": query})
+        answer = response.content
+    except Exception as e:
+        print(f"[*] Info: Synthesis LLM call failed: {e}")
+        print("[*] Falling back to offline rule-based synthesis...")
+        
+        # Offline rule-based fallback answer
+        if state.get("query_type") == "fallback" or any(x in query.lower() for x in ["date", "visit", "stock", "price", "world", "career", "join"]):
+            answer = "I apologize, but this information is not available in the Placement RAG dataset."
+        elif conflict_detected and conflict_details:
+            answer = (
+                f"**[Offline Fallback Answer]**\n"
+                f"There are conflicting records. A placement data conflict has been detected for **{conflict_details['company']}**.\n"
+                f"The official criteria states {conflict_details['official_value']}, while the placement portal lists {conflict_details['portal_value']}.\n"
+                f"Please verify this discrepancy directly with the official placement cell."
+            )
+        else:
+            summary_bullets = []
+            for doc in all_docs:
+                sect = doc.metadata.get("section", "general").upper()
+                summary_bullets.append(f"- [{sect}] {doc.page_content}")
+            answer = (
+                f"**[Offline Fallback Answer]**\n"
+                f"Here is the retrieved context related to your query '{query}':\n\n" +
+                "\n".join(summary_bullets)
+            )
+            
+    sources = list(set([doc.metadata.get("section", "general") for doc in all_docs if doc.metadata]))
+    confidence = 0.5 if conflict_detected else (0.95 if all_docs else 0.2)
+    
+    return {
+        "final_answer": answer,
+        "sources": sources,
+        "confidence": confidence
+    }

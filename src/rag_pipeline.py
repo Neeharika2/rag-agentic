@@ -1,167 +1,127 @@
 import os
-from typing import TypedDict, List, Dict, Any
+from typing import TypedDict, List, Dict, Any, Optional
 from langchain_core.documents import Document
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, END
-from src.vectorstore.chroma_store import ChromaStore
 
-# 1. Shared Graph State Definition
-class RAGState(TypedDict):
+# Import the dynamic nodes from src.nodes
+from src.nodes import (
+    router_node,
+    eligibility_node,
+    interview_prep_node,
+    hiring_stats_node,
+    overall_stats_node,
+    trend_node,
+    validation_node,
+    synthesis_node
+)
+
+# 1. Placement Agent Shared State Schema
+class PlacementAgentState(TypedDict):
     """
-    State definition for the RAG pipeline.
-    Passed between nodes in the LangGraph execution flow.
+    PlacementAgentState defines the shared state schema for the placement RAG assistant,
+    passing classification, normalized entities, retrieval contexts, and validation
+    details between Graph nodes.
     """
-    query: str               # The user's input query string
-    documents: List[Document]# List of retrieved document chunks relevant to the query
-    response: str            # The final generated answer string
-
-# 2. ChromaDB Retriever
-def chroma_retrieve(query: str, limit: int = 3) -> List[Document]:
-    """
-    Queries the local ChromaDB database for matches.
-
-    Parameters:
-    - query (str): The search query.
-    - limit (int): The maximum number of documents to return.
-
-    Returns:
-    - List[Document]: A list of matching documents with text and metadata.
-    """
-    try:
-        # Locate the local chroma_db folder relative to the workspace base directory
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        persist_dir = os.path.join(base_dir, "chroma_db")
-        
-        # Only query if database folder exists
-        if os.path.exists(persist_dir):
-            store = ChromaStore(persist_dir=persist_dir)
-            results = store.search(query, limit=limit)
-            if results:
-                # Convert the raw database dict result into standard LangChain Document objects
-                return [
-                    Document(page_content=r["text"], metadata=r["metadata"])
-                    for r in results
-                ]
-    except Exception as e:
-        # Catch exceptions (e.g. schema changes or directory locked) and log
-        print(f"[*] Info: Chroma retrieval check failed or DB empty: {e}")
-    return []
-
-# 3. LangGraph Nodes
-def retrieve_node(state: RAGState) -> Dict[str, Any]:
-    """
-    Retrieve Node:
-    Extracts the query from the state, calls the ChromaDB search engine,
-    and updates the state with the list of retrieved documents.
-
-    Parameters:
-    - state (RAGState): The current state of the execution graph.
-
-    Returns:
-    - Dict[str, Any]: A dictionary updating the 'documents' field in state.
-    """
-    query = state["query"]
-    print(f"\n--- [Node: Retrieve] ---")
-    print(f"Query: '{query}'")
+    user_query: str                          # Raw input query
+    query: Optional[str]                     # Backward-compatibility fallback
     
-    # Query ChromaDB for relevant document chunks
-    docs = chroma_retrieve(query)
-    print(f"[*] Retrieved {len(docs)} matching documents from ChromaDB.")
-        
-    # Print a snippet of each retrieved document for trace debugging
-    for i, doc in enumerate(docs):
-        source = doc.metadata.get('section', 'general')
-        print(f"  Document {i+1} (Source: {source}): {doc.page_content[:90]}...")
-        
-    return {"documents": docs}
+    # Classification & Entities (RouterNode)
+    query_type: str                          # Intent: 'eligibility', 'interview_prep', 'hiring', 'statistics', 'trend', 'conflict', 'fallback'
+    entities: List[str]                      # Normalized canonical company names (e.g. ['Amazon', 'TCS'])
+    
+    # Capability Contexts (populated by retrieval nodes)
+    eligibility_context: List[Document]
+    interview_context: List[Document]
+    hiring_context: List[Document]
+    stats_context: List[Document]
+    trend_context: List[Document]
+    
+    # Conflict & Verification Attributes
+    conflict_detected: bool
+    conflict_details: Optional[Dict[str, Any]]
+    
+    # Synthesis outputs
+    final_answer: str                        # Final markdown response
+    sources: List[str]                       # Extracted source section titles
+    confidence: float                        # Safety/assurance score (0.0 to 1.0)
 
-def generate_node(state: RAGState) -> Dict[str, Any]:
+# 2. Dynamic Routing Logic
+def route_query(state: PlacementAgentState) -> str:
     """
-    Generate Node:
-    Constructs a RAG context, compiles a chat prompt, and invokes
-    the Gemini model to generate a response. Includes robust fallback
-    handling if Google API keys are missing or quota is exceeded.
-
-    Parameters:
-    - state (RAGState): The current state of the execution graph.
-
-    Returns:
-    - Dict[str, Any]: A dictionary updating the 'response' field in state.
+    Reads query_type from the state and routes to the appropriate RAG capability node.
     """
-    query = state["query"]
-    documents = state["documents"]
-    print(f"\n--- [Node: Generate] ---")
+    q_type = state.get("query_type", "eligibility")
     
-    # Concatenate the content of all retrieved documents to build the RAG context block
-    context_str = "\n\n".join([
-        f"Document {i+1} [Section: {doc.metadata.get('section', 'general')}]:\n{doc.page_content}"
-        for i, doc in enumerate(documents)
-    ])
-    
-    # Define a clean instruction prompt for the Placement Assistant
-    prompt_template = ChatPromptTemplate.from_messages([
-        ("system", (
-            "You are an expert Placement Assistant. Answer the user query using the provided context below. "
-            "If you cannot answer from the context, rely on your internal knowledge but clearly state that "
-            "the source is not in the provided context documents.\n\n"
-            "Context:\n{context}"
-        )),
-        ("user", "{query}")
-    ])
-    
-    try:
-        # Initialize Gemini LLM (gemini-1.5-flash).
-        # Requires GOOGLE_API_KEY or GEMINI_API_KEY environment variable.
-        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
-        
-        # Combine prompt and LLM using LCEL (LangChain Expression Language)
-        chain = prompt_template | llm
-        response = chain.invoke({"context": context_str, "query": query})
-        answer = response.content
-    except Exception as e:
-        # Gracefully handle API failures (such as quota exceeded, network timeouts, or missing keys)
-        print(f"[*] Gemini API call failed: {e}")
-        print("[*] Falling back to rule-based offline generator...")
-        
-        # Construct an offline fallback answer listing the matching retrieved text directly
-        summary_bullets = []
-        for i, doc in enumerate(documents):
-            sect = doc.metadata.get("section", "general").upper()
-            summary_bullets.append(f"- [{sect}] {doc.page_content}")
-            
-        answer = (
-            f"**[Offline Fallback Answer]**\n"
-            f"The Gemini API request failed (e.g., due to API limits, missing key, or quota). "
-            f"Here is the retrieved context related to your query '{query}':\n\n" +
-            "\n".join(summary_bullets)
-        )
-    
-    print(f"[*] Generated RAG Answer:\n{answer}")
-    return {"response": answer}
+    if q_type == "eligibility":
+        return "eligibility"
+    elif q_type == "interview_prep":
+        return "interview"
+    elif q_type == "hiring":
+        return "hiring"
+    elif q_type == "statistics":
+        return "statistics"
+    elif q_type == "trend":
+        return "trend"
+    else:
+        # Default route for 'conflict', 'fallback', or other unknown query types
+        # eligibility node is safe to execute as a general retrieval baseline
+        return "eligibility"
 
-# 4. Graph Assembly & Compilation
+# 3. Graph Compilation
+def build_placement_graph():
+    """
+    Assembles and compiles the Placement Assistant LangGraph workflow.
+    Wires up RouterNode -> Retrieval Nodes -> ValidationNode -> SynthesisNode.
+    """
+    # Initialize state graph with our customized state definition
+    workflow = StateGraph(PlacementAgentState)
+    
+    # 1. Register all nodes
+    workflow.add_node("router", router_node)
+    workflow.add_node("eligibility", eligibility_node)
+    workflow.add_node("interview", interview_prep_node)
+    workflow.add_node("hiring", hiring_stats_node)
+    workflow.add_node("statistics", overall_stats_node)
+    workflow.add_node("trend", trend_node)
+    workflow.add_node("validation", validation_node)
+    workflow.add_node("synthesis", synthesis_node)
+    
+    # 2. Set entry point
+    workflow.set_entry_point("router")
+    
+    # 3. Add conditional edges mapping from Router
+    workflow.add_conditional_edges(
+        "router",
+        route_query,
+        {
+            "eligibility": "eligibility",
+            "interview": "interview",
+            "hiring": "hiring",
+            "statistics": "statistics",
+            "trend": "trend"
+        }
+    )
+    
+    # 4. Retrieval node standard edges (forward to Validation)
+    workflow.add_edge("eligibility", "validation")
+    workflow.add_edge("trend", "validation")
+    
+    # 5. Retrieval node join sequence (Interview -> Hiring -> Validation)
+    workflow.add_edge("interview", "hiring")
+    workflow.add_edge("hiring", "validation")
+    
+    # 6. Overall statistics bypasses validation straight to Synthesis
+    workflow.add_edge("statistics", "synthesis")
+    
+    # 7. Final validation-to-synthesis flow
+    workflow.add_edge("validation", "synthesis")
+    workflow.add_edge("synthesis", END)
+    
+    return workflow.compile()
+
+# 4. Backward Compatibility Wrapper
 def build_rag_graph():
     """
-    Assembles and compiles the LangGraph StateGraph workflow.
-    Configures retrieve -> generate sequential edge connections.
-
-    Returns:
-    - CompiledGraph: The compiled state graph ready to be invoked.
+    Wrapper mapping the legacy build_rag_graph call to the Compiled Placement Graph.
     """
-    # Create the state graph workspace with our custom RAGState
-    workflow = StateGraph(RAGState)
-    
-    # Register the nodes
-    workflow.add_node("retrieve", retrieve_node)
-    workflow.add_node("generate", generate_node)
-    
-    # Configure graph entry point
-    workflow.set_entry_point("retrieve")
-    
-    # Add sequential transitions: retrieve -> generate -> END
-    workflow.add_edge("retrieve", "generate")
-    workflow.add_edge("generate", END)
-    
-    # Compile the graph workflow
-    return workflow.compile()
+    return build_placement_graph()

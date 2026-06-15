@@ -12,11 +12,14 @@ def run_cli(query: str):
     print(f"[*] Input Query: '{query}'")
     print("==================================================")
     
-    initial_state = {"query": query}
+    initial_state = {
+        "user_query": query,
+        "query": query
+    }
     try:
         final_state = graph.invoke(initial_state)
         print("\n================== FINAL ANSWER ==================")
-        print(final_state.get("response", "No response generated."))
+        print(final_state.get("final_answer") or final_state.get("response") or "No response generated.")
         print("==================================================\n")
     except Exception as e:
         print(f"\n[!] Error running the pipeline: {e}")
