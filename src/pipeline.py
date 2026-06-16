@@ -152,6 +152,19 @@ class IngestionPipeline:
         self.vector_store.add_documents(chunks)
         print(f"[+] Ingestion completed successfully! Total chunks indexed: {len(chunks)}")
         
+        # Save chunks to logs/ingested_chunks.json
+        try:
+            import json
+            base_dir = Path(__file__).resolve().parent.parent
+            logs_dir = base_dir / "logs"
+            logs_dir.mkdir(exist_ok=True)
+            log_file = logs_dir / "ingested_chunks.json"
+            with open(log_file, "w", encoding="utf-8") as f:
+                json.dump(chunks, f, indent=2, ensure_ascii=False)
+            print(f"[*] Logs: Ingested chunks saved to {log_file}")
+        except Exception as e:
+            print(f"[*] Warning: Could not save ingestion logs: {e}")
+        
         return {
             "status": "success",
             "parsed_elements_count": len(parsed_elements),

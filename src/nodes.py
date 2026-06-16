@@ -851,6 +851,32 @@ def detect_conflicts_dynamically(all_docs: List[Document], target_companies: Lis
                         
     return None
 
+def log_retrieved_chunks(query: str, docs: List[Document]):
+    """
+    Logs the chunks retrieved for a user query to logs/query_retrievals.log.
+    """
+    try:
+        import datetime
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        logs_dir = os.path.join(base_dir, "logs")
+        os.makedirs(logs_dir, exist_ok=True)
+        log_file = os.path.join(logs_dir, "query_retrievals.log")
+        
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write("=" * 80 + "\n")
+            f.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
+            f.write(f"Query: {query}\n")
+            f.write(f"Total Chunks Retrieved: {len(docs)}\n")
+            f.write("-" * 80 + "\n")
+            for idx, doc in enumerate(docs):
+                f.write(f"Chunk {idx+1}:\n")
+                f.write(f"  Content: {doc.page_content}\n")
+                f.write(f"  Metadata: {doc.metadata}\n")
+                f.write("\n")
+            f.write("=" * 80 + "\n\n")
+    except Exception as e:
+        print(f"[*] Warning: Could not log retrieved chunks: {e}")
+
 def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     ValidationNode: Dynamic conflict verification.
@@ -876,6 +902,10 @@ def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
             print(f"[*] Info: Could not retrieve conflict documents: {e}")
             
     target_companies = [c.lower() for c in state.get("entities", [])]
+    
+    # Log the chunks retrieved for this query
+    query = state.get("user_query") or state.get("query") or ""
+    log_retrieved_chunks(query, all_docs)
     
     conflict_details = detect_conflicts_dynamically(all_docs, target_companies)
     conflict_detected = conflict_details is not None
