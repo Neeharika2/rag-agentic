@@ -53,7 +53,7 @@ async def query_endpoint(request: QueryRequest):
         docs_response = []
         # Collect retrieved documents across all active capability context lists
         all_docs = []
-        for field in ["eligibility_context", "interview_context", "hiring_context", "stats_context", "trend_context"]:
+        for field in ["eligibility_context", "interview_context", "hiring_context", "stats_context", "trend_context", "websearch_context"]:
             if final_state.get(field):
                 all_docs.extend(final_state[field])
                 

@@ -4,6 +4,7 @@ from langchain_core.documents import Document
 from langgraph.graph import StateGraph, END
 
 # Import the dynamic nodes from src.nodes
+# Import the dynamic nodes from src.nodes
 from src.nodes import (
     router_node,
     eligibility_node,
@@ -12,7 +13,8 @@ from src.nodes import (
     overall_stats_node,
     trend_node,
     validation_node,
-    synthesis_node
+    synthesis_node,
+    websearch_node
 )
 
 # 1. Placement Agent Shared State Schema
@@ -35,6 +37,7 @@ class PlacementAgentState(TypedDict):
     hiring_context: List[Document]
     stats_context: List[Document]
     trend_context: List[Document]
+    websearch_context: List[Document]
     
     # Conflict & Verification Attributes
     conflict_detected: bool
@@ -62,6 +65,8 @@ def route_query(state: PlacementAgentState) -> str:
         return "statistics"
     elif q_type == "trend":
         return "trend"
+    elif q_type == "fallback":
+        return "websearch"
     else:
         # Default route for 'conflict', 'fallback', or other unknown query types
         # eligibility node is safe to execute as a general retrieval baseline
@@ -85,6 +90,7 @@ def build_placement_graph():
     workflow.add_node("trend", trend_node)
     workflow.add_node("validation", validation_node)
     workflow.add_node("synthesis", synthesis_node)
+    workflow.add_node("websearch", websearch_node)
     
     # 2. Set entry point
     workflow.set_entry_point("router")
@@ -98,7 +104,8 @@ def build_placement_graph():
             "interview": "interview",
             "hiring": "hiring",
             "statistics": "statistics",
-            "trend": "trend"
+            "trend": "trend",
+            "websearch": "websearch"
         }
     )
     
@@ -113,7 +120,10 @@ def build_placement_graph():
     # 6. Overall statistics bypasses validation straight to Synthesis
     workflow.add_edge("statistics", "synthesis")
     
-    # 7. Final validation-to-synthesis flow
+    # 7. Web search bypasses validation straight to Synthesis
+    workflow.add_edge("websearch", "synthesis")
+    
+    # 8. Final validation-to-synthesis flow
     workflow.add_edge("validation", "synthesis")
     workflow.add_edge("synthesis", END)
     
