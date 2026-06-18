@@ -29,7 +29,7 @@ def synthesis_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # Check out-of-corpus fallback if we STILL have no context
     if not all_docs:
         query_lower = query.lower()
-        if any(x in query_lower for x in ["date", "visit", "stock", "price", "world", "career", "join"]):
+        if any(x in query_lower for x in ["date", "visit", "stock", "price", "world", "career", "join", "experience"]):
             final_answer = "I apologize, but this information is not available in the Placement RAG dataset."
             return {
                 "final_answer": final_answer,
@@ -112,7 +112,7 @@ def synthesis_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 "Here are the web search results retrieved for your query:\n\n" +
                 "\n".join(summary_bullets)
             )
-        elif state.get("query_type") == "fallback" or any(x in query.lower() for x in ["date", "visit", "stock", "price", "world", "career", "join"]):
+        elif state.get("query_type") == "fallback" or any(x in query.lower() for x in ["date", "visit", "stock", "price", "world", "career", "join", "experience"]):
             answer = "I apologize, but this information is not available in the Placement RAG dataset."
         elif mh_docs:
             answer = mh_docs[0].page_content

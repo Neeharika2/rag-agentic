@@ -19,16 +19,20 @@ def rule_based_router(query: str) -> dict:
     # 3. Statistics detection (check for mathematical/ratio terms)
     elif any(x in query_lower for x in ["ratio", "package-to-cgpa", "package to cgpa", "package/cgpa", "offers", "min_offers", "max_offers", "avg_package", "average", "statistics", "stats"]):
         q_type = "statistics"
-    # 4. Hiring stats detection (check for hiring role terms)
+    # 4. Experience-based queries (interview experience, placement experience, etc.)
+    # These are personal/anecdotal and NOT in the structured dataset → route to web search
+    elif any(x in query_lower for x in ["interview experience", "placement experience", "internship experience", "work experience"]):
+        q_type = "fallback"
+    # 5. Hiring stats detection (check for hiring role terms)
     elif any(x in query_lower for x in ["intern", "sde", "analyst", "officer", "hiring", "hires", "hired", "recruit", "recruitment"]):
         q_type = "hiring"
-    # 5. Interview preparation detection (check for interview/rounds/focus terms)
+    # 6. Interview preparation detection (check for interview/rounds/focus terms)
     elif any(x in query_lower for x in ["round", "rounds", "topic", "topics", "focus", "prepare", "interview", "preparation", "tech", "focus", "subject"]):
         q_type = "interview_prep"
-    # 6. Fallback/Out of corpus detection (questions about date, stock, visit, world, career etc.)
-    elif any(x in query_lower for x in ["date", "visit", "stock", "price", "world", "career", "when"]):
+    # 7. Fallback/Out of corpus detection (questions about date, stock, visit, world, career etc.)
+    elif any(x in query_lower for x in ["date", "visit", "stock", "price", "world", "career", "when", "experience"]):
         q_type = "fallback"
-    # 7. Eligibility (default or specific keywords)
+    # 8. Eligibility (default or specific keywords)
     elif any(x in query_lower for x in ["eligibility", "cgpa", "cutoff", "backlog", "backlogs", "bond", "require", "criteria"]):
         q_type = "eligibility"
         
@@ -90,12 +94,12 @@ def router_node(state: Dict[str, Any]) -> Dict[str, Any]:
             f"Instructions:\n"
             f"1. Classify the query intent into one of the following classes:\n"
             f"   - 'eligibility': Questions about cutoffs, GPA, active backlogs, bonds, and package thresholds.\n"
-            f"   - 'interview_prep': Questions about selection rounds, topics, technical focus, preparing.\n"
-            f"   - 'hiring': Questions about counts of hires, software development roles, intern/analyst count rankings.\n"
-            f"   - 'statistics': Placement statistics aggregations, averages, or ratios (e.g. package-to-CGPA).\n"
-            f"   - 'trend': Temporal reasoning or package comparisons across multiple years (e.g. 2021 to 2024 growth).\n"
-            f"   - 'conflict': Explicit conflict or discrepancy questions (e.g. 'Is Amazon cutoff 6.4 or 7.0?', 'conflicting data').\n"
-            f"   - 'fallback': Out of corpus, stock prices, subjective opinions, or vague/unrelated queries.\n\n"
+             f"   - 'interview_prep': Questions about selection rounds, topics, technical focus, preparing (NOT about personal interview experiences).\n"
+             f"   - 'hiring': Questions about counts of hires, software development roles, intern/analyst count rankings.\n"
+             f"   - 'statistics': Placement statistics aggregations, averages, or ratios (e.g. package-to-CGPA).\n"
+             f"   - 'trend': Temporal reasoning or package comparisons across multiple years (e.g. 2021 to 2024 growth).\n"
+             f"   - 'conflict': Explicit conflict or discrepancy questions (e.g. 'Is Amazon cutoff 6.4 or 7.0?', 'conflicting data').\n"
+             f"   - 'fallback': Out of corpus, stock prices, subjective opinions (e.g. 'interview experience'), or vague/unrelated queries.\n\n"
             f"2. Extract company names mentioned. Resolve aliases to match exactly the canonical companies in the list."
         )
         
