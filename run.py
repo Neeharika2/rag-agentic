@@ -1,11 +1,11 @@
 import argparse
 import sys
 import uvicorn
-from src.rag_pipeline import build_rag_graph
+from src.rag_pipeline import build_placement_graph
 
 def run_cli(query: str):
     """Compiles the LangGraph and executes a CLI query."""
-    graph = build_rag_graph()
+    graph = build_placement_graph()
     
     print("==================================================")
     print(f"[*] Running LangGraph RAG pipeline...")

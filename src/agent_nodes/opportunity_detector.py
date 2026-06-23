@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any, List
 from langchain_core.documents import Document
-from .company_utils import get_chroma_store, normalize_company_name
+from .company_utils import get_chroma_store, normalize_company_name, check_academic_eligibility
 
 def opportunity_detector_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -47,13 +47,8 @@ def opportunity_detector_node(state: Dict[str, Any]) -> Dict[str, Any]:
             continue
             
         # Hard Academic Filters
-        if student_cgpa is not None:
-            if student_cgpa < min_cgpa:
-                continue
-                
-        if student_backlogs is not None:
-            if student_backlogs > max_backlogs:
-                continue
+        if not check_academic_eligibility(student_cgpa, student_backlogs, min_cgpa, max_backlogs):
+            continue
                 
         # Calculate Skill Match Score
         skill_score = 0

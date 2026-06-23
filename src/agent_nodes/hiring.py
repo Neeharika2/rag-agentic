@@ -19,7 +19,7 @@ def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
             if c.lower() in mh_doc.page_content.lower() and c not in entities:
                 entities.append(c)
         return {
-            "hiring_context": [mh_doc],
+            "retrieved_contexts": [mh_doc],
             "entities": entities
         }
     
@@ -99,9 +99,9 @@ def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
                     if c.lower() in sec.lower():
                         tech_companies.append(normalize_company_name(c))
                         
-        # Check interview_context if present to find companies associated with the tech focus
-        interview_context = state.get("interview_context", [])
-        for doc in interview_context:
+        # Check retrieved_contexts if present to find companies associated with the tech focus
+        retrieved_contexts = state.get("retrieved_contexts", [])
+        for doc in retrieved_contexts:
             meta = doc.metadata
             if meta:
                 comp = meta.get("company")
@@ -157,4 +157,4 @@ def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     return_docs = [Document(page_content=d, metadata=m) for d, m, _ in hiring_records]
     return_docs.append(summary_doc)
     
-    return {"hiring_context": return_docs}
+    return {"retrieved_contexts": return_docs}

@@ -19,7 +19,7 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
             if c.lower() in mh_doc.page_content.lower() and c not in entities:
                 entities.append(c)
         return {
-            "stats_context": [mh_doc],
+            "retrieved_contexts": [mh_doc],
             "entities": entities
         }
     
@@ -107,4 +107,4 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     return_docs = [Document(page_content=d, metadata=m) for d, m in zip(docs, metas)]
     return_docs.append(summary_doc)
     
-    return {"stats_context": return_docs}
+    return {"retrieved_contexts": return_docs}

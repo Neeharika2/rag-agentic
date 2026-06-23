@@ -6,35 +6,38 @@ def rule_based_router(query: str) -> dict:
     query_lower = query.lower()
     q_type = "eligibility" # default
     
-    # 1. Conflict detection (check for conflict keywords, or multiple numbers with 'or'/'vs'/'versus')
-    numbers = re.findall(r"\b\d+(?:\.\d+)?\b", query_lower)
-    has_conflict_keywords = any(x in query_lower for x in ["conflict", "contradict", "different data", "differing data", "discrepancy", "mismatch", "error", "correct"])
-    has_multi_numbers = len(set(numbers)) >= 2 and any(x in query_lower for x in ["or", "vs", "versus", "between"])
-    
-    if has_conflict_keywords or (has_multi_numbers and any(x in query_lower for x in ["cgpa", "cutoff", "package", "lpa", "salary", "pay"])):
-        q_type = "conflict"
-    # 2. Trend detection (check for growth/trend keywords or two years mentioned)
-    elif any(x in query_lower for x in ["grew", "growth", "trend", "temporal", "increase", "decrease", "change", "rise", "over time", "comparison"]) or len(re.findall(r"\b20\d{2}\b", query_lower)) >= 2:
-        q_type = "trend"
-    # 3. Statistics detection (check for mathematical/ratio terms)
-    elif any(x in query_lower for x in ["ratio", "package-to-cgpa", "package to cgpa", "package/cgpa", "offers", "min_offers", "max_offers", "avg_package", "average", "statistics", "stats"]):
-        q_type = "statistics"
-    # 4. Experience-based queries (interview experience, placement experience, etc.)
-    # These are personal/anecdotal and NOT in the structured dataset → route to web search
-    elif any(x in query_lower for x in ["interview experience", "placement experience", "internship experience", "work experience"]):
-        q_type = "fallback"
-    # 5. Hiring stats detection (check for hiring role terms)
-    elif any(x in query_lower for x in ["intern", "sde", "analyst", "officer", "hiring", "hires", "hired", "recruit", "recruitment"]):
-        q_type = "hiring"
-    # 6. Interview preparation detection (check for interview/rounds/focus terms)
-    elif any(x in query_lower for x in ["round", "rounds", "topic", "topics", "focus", "prepare", "interview", "preparation", "tech", "focus", "subject"]):
-        q_type = "interview_prep"
-    # 7. Fallback/Out of corpus detection (questions about date, stock, visit, world, career etc.)
-    elif any(x in query_lower for x in ["date", "visit", "stock", "price", "world", "career", "when", "experience"]):
-        q_type = "fallback"
-    # 8. Eligibility (default or specific keywords)
-    elif any(x in query_lower for x in ["eligibility", "cgpa", "cutoff", "backlog", "backlogs", "bond", "require", "criteria"]):
+    # 1. Compare check - comparison queries comparing eligibility/package/hiring should route to eligibility
+    if "compare" in query_lower:
         q_type = "eligibility"
+    else:
+        # 2. Conflict detection (check for conflict keywords, or multiple numbers with 'or'/'vs'/'versus')
+        numbers = re.findall(r"\b\d+(?:\.\d+)?\b", query_lower)
+        has_conflict_keywords = any(x in query_lower for x in ["conflict", "contradict", "different data", "differing data", "discrepancy", "mismatch", "error", "correct"])
+        has_multi_numbers = len(set(numbers)) >= 2 and any(x in query_lower for x in ["or", "vs", "versus", "between"])
+        
+        if has_conflict_keywords or (has_multi_numbers and any(x in query_lower for x in ["cgpa", "cutoff", "package", "lpa", "salary", "pay"])):
+            q_type = "conflict"
+        # 3. Trend detection (check for growth/trend keywords or two years mentioned)
+        elif any(x in query_lower for x in ["grew", "growth", "trend", "temporal", "increase", "decrease", "change", "rise", "over time", "comparison"]) or len(re.findall(r"\b20\d{2}\b", query_lower)) >= 2:
+            q_type = "trend"
+        # 4. Statistics detection (check for mathematical/ratio terms)
+        elif any(x in query_lower for x in ["ratio", "package-to-cgpa", "package to cgpa", "package/cgpa", "offers", "min_offers", "max_offers", "avg_package", "average", "statistics", "stats"]):
+            q_type = "statistics"
+        # 5. Experience-based queries (interview experience, placement experience, etc.)
+        elif any(x in query_lower for x in ["interview experience", "placement experience", "internship experience", "work experience"]):
+            q_type = "fallback"
+        # 6. Interview preparation detection (check for interview/rounds/focus terms)
+        elif any(x in query_lower for x in ["round", "rounds", "topic", "topics", "focus", "prepare", "interview", "preparation", "tech", "subject", "language", "programming", "tested", "test", "python", "java", "c++", "coding"]):
+            q_type = "interview_prep"
+        # 7. Hiring stats detection (check for hiring role terms)
+        elif any(x in query_lower for x in ["intern", "sde", "analyst", "officer", "hiring", "hires", "hired", "recruit", "recruitment"]):
+            q_type = "hiring"
+        # 8. Fallback/Out of corpus detection (questions about date, stock, visit, world, career etc.)
+        elif any(x in query_lower for x in ["date", "visit", "stock", "price", "world", "career", "when", "experience"]):
+            q_type = "fallback"
+        # 9. Eligibility (default or specific keywords)
+        elif any(x in query_lower for x in ["eligibility", "cgpa", "cutoff", "backlog", "backlogs", "bond", "require", "criteria", "package", "lpa", "salary", "pay"]):
+            q_type = "eligibility"
         
     # Dynamic rule-based entity extractor
     entities = []

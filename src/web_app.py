@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from src.rag_pipeline import build_rag_graph
+from src.rag_pipeline import build_placement_graph
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -50,7 +50,7 @@ class QueryResponse(BaseModel):
     is_strategy_query: Optional[bool] = None
 
 # Compile the LangGraph pipeline workflow once at startup
-rag_graph = build_rag_graph()
+rag_graph = build_placement_graph()
 
 @app.post("/api/query", response_model=QueryResponse)
 async def query_endpoint(request: QueryRequest):
@@ -78,10 +78,7 @@ async def query_endpoint(request: QueryRequest):
         # Format list of retrieved document chunks for response JSON
         docs_response = []
         # Collect retrieved documents across all active capability context lists
-        all_docs = []
-        for field in ["eligibility_context", "interview_context", "hiring_context", "stats_context", "trend_context", "websearch_context"]:
-            if final_state.get(field):
-                all_docs.extend(final_state[field])
+        all_docs = final_state.get("retrieved_contexts") or []
                 
         for doc in all_docs:
             docs_response.append(DocumentResponse(

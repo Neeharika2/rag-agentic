@@ -19,7 +19,7 @@ def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
             if c.lower() in mh_doc.page_content.lower() and c not in entities:
                 entities.append(c)
         return {
-            "interview_context": [mh_doc],
+            "retrieved_contexts": [mh_doc],
             "entities": entities
         }
     
@@ -66,4 +66,4 @@ def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
             if "technical_focus" in r["metadata"].get("section", "")
         ]
         
-    return {"interview_context": matched_docs}
+    return {"retrieved_contexts": matched_docs}

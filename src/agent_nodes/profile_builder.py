@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field
 from typing import List
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
-from .company_utils import _load_env_file
 
 class StudentProfile(BaseModel):
     cgpa: Optional[float] = Field(None, description="Student's CGPA, normalized between 0.0 and 10.0")
@@ -33,8 +32,26 @@ def profile_builder_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "is_strategy_query": True
         }
         
-    # 2. Extract structured profile using Gemini
-    _load_env_file()
+    # 2. Rule-based bypass for factual/lookup queries to save Gemini API quota
+    query_lower = query.lower()
+    strategy_keywords = ["strategy", "plan", "roadmap", "advisor", "suggest", "recommend", "prepare me", "pathway", "career path", "what should i do", "advice", "what to do"]
+    has_strategy_keyword = any(k in query_lower for k in strategy_keywords)
+    
+    if not has_strategy_keyword:
+        print("[*] ProfileBuilder: Bypassing LLM profile extraction for factual lookup query.")
+        return {
+            "student_profile": {
+                "cgpa": None,
+                "skills": [],
+                "weaknesses": [],
+                "interests": [],
+                "backlogs": 0,
+                "projects_count": 0
+            },
+            "is_strategy_query": False
+        }
+
+    # 3. Extract structured profile using Gemini
     try:
         llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, max_retries=0)
         structured_llm = llm.with_structured_output(StudentProfile)

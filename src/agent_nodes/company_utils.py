@@ -87,3 +87,45 @@ def normalize_company_name(name: str) -> str:
                 return c
                 
     return name
+
+from typing import Optional, Dict, Any, Tuple
+from langchain_core.documents import Document
+
+def parse_cgpa_from_text(query: str) -> Optional[float]:
+    clean_query = re.sub(r"\d+(?:\.\d+)?\s*(?:lpa|lakh|lakhs|%|percent)", "", query.lower())
+    cgpa_floats = [float(x) for x in re.findall(r"\b\d+\.\d+\b", clean_query)]
+    cgpa_ints = [float(x) for x in re.findall(r"\b[56789]\b|\b10\b", clean_query)]
+    all_cgpas = [c for c in (cgpa_floats + cgpa_ints) if 5.0 <= c <= 10.0]
+    return all_cgpas[0] if all_cgpas else None
+
+def parse_backlogs_from_text(query: str) -> Optional[int]:
+    backlog_match = re.search(r"(\d+)\s*(?:active\s*)?backlog", query, re.IGNORECASE)
+    return int(backlog_match.group(1)) if backlog_match else None
+
+def check_academic_eligibility(
+    student_cgpa: Optional[float],
+    student_backlogs: Optional[int],
+    min_cgpa: float,
+    max_backlogs: int,
+    no_bond: bool = False,
+    bond_years: int = 0,
+    min_cgpa_above: Optional[float] = None,
+    min_backlogs_at_least: Optional[int] = None
+) -> bool:
+    """Consolidated academic eligibility helper used across nodes."""
+    if student_cgpa is not None and min_cgpa > student_cgpa:
+        return False
+    if student_backlogs is not None and max_backlogs < student_backlogs:
+        return False
+    if no_bond and bond_years > 0:
+        return False
+    if min_cgpa_above is not None and min_cgpa <= min_cgpa_above:
+        return False
+    if min_backlogs_at_least is not None and max_backlogs < min_backlogs_at_least:
+        return False
+    return True
+
+def gather_retrieved_contexts(state: Dict[str, Any], fields: Optional[List[str]] = None) -> List[Document]:
+    """Backward compatible helper returning collapsed contexts."""
+    return state.get("retrieved_contexts") or []
+

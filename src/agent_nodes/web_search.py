@@ -2,15 +2,12 @@ import os
 import requests
 from typing import List
 from langchain_core.documents import Document
-from .company_utils import _load_env_file
 
 def tavily_search(query: str) -> List[Document]:
     """
     Performs web search using Tavily API.
     Queries the Tavily search endpoint and converts the results into Document objects.
     """
-    # Ensure env is loaded
-    _load_env_file()
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
         print("[*] Warning: TAVILY_API_KEY not found in environment. Skipping web search.")
@@ -52,3 +49,17 @@ def tavily_search(query: str) -> List[Document]:
     except Exception as e:
         print(f"[*] Error during Tavily Search: {e}")
         return []
+
+from typing import Dict, Any
+
+def websearch_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    WebsearchNode: Runs when query intent is 'fallback' (out of corpus / general).
+    Calls Tavily Search API and saves context in 'retrieved_contexts'.
+    """
+    query = state.get("user_query") or state.get("query") or ""
+    print(f"[*] Running Web Search via Tavily for query: '{query}'")
+    web_docs = tavily_search(query)
+    return {
+        "retrieved_contexts": web_docs
+    }

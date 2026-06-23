@@ -161,10 +161,7 @@ def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     and sets conflict_detected/conflict_details dynamically using modular helpers.
     """
     # Gather all contexts
-    all_docs = []
-    for field in ["eligibility_context", "interview_context", "hiring_context", "stats_context", "trend_context"]:
-        if state.get(field):
-            all_docs.extend(state[field])
+    all_docs = list(state.get("retrieved_contexts") or [])
             
     # Exclude multi-hop summary documents from conflict detection to avoid false conflicts
     all_docs = [d for d in all_docs if d.metadata and "multi_hop_reasoning" not in d.metadata.get("section", "")]
@@ -190,12 +187,12 @@ def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     conflict_details = detect_conflicts_dynamically(all_docs, target_companies)
     conflict_detected = conflict_details is not None
     
-    # If we retrieved conflict docs, append them to eligibility_context so synthesis gets them
+    # If we retrieved conflict docs, append them to retrieved_contexts so synthesis gets them
     ret_dict = {
         "conflict_detected": conflict_detected,
         "conflict_details": conflict_details
     }
     if conflict_docs:
-        ret_dict["eligibility_context"] = (state.get("eligibility_context") or []) + conflict_docs
+        ret_dict["retrieved_contexts"] = conflict_docs
         
     return ret_dict
