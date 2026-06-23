@@ -10,8 +10,54 @@ def synthesis_node(state: Dict[str, Any]) -> Dict[str, Any]:
     and appropriate source citations, incorporating conflict notifications if present.
     """
     query = state.get("user_query") or state.get("query") or ""
+    is_strategy = state.get("is_strategy_query", False)
+    
+    if is_strategy:
+        opps = state.get("opportunities") or []
+        opps_str = ""
+        if opps:
+            for idx, o in enumerate(opps):
+                opps_str += f"{idx+1}. Company: {o['company']}, Package: {o['package']} LPA, Cutoff CGPA: {o['min_cgpa']}, Max Backlogs: {o['max_backlogs']}, Tech Focus: {o['tech_focus']}, Bond: {o['bond']} Yrs (Skill Overlap Score: {o['skill_score']})\n"
+        else:
+            opps_str = "No eligible companies found matching the CGPA and backlog criteria.\n"
+            
+        system_prompt = (
+            "You are an expert SVECW Placement Assistant compiling a final career advice report.\n"
+            "The student has submitted their profile details. Below is the list of eligible companies "
+            "and their requirements parsed from the database.\n\n"
+            "Eligible Companies List:\n"
+            f"{opps_str}\n\n"
+            "Instructions:\n"
+            "1. Present the matching companies in a clear, formatted markdown report, sorted by skill overlap score descending (and package LPA descending as a tie-breaker).\n"
+            "2. For each company, summarize the cutoff CGPA, backlog allowance, tech focus/topics to prepare, and bond details.\n"
+            "3. If no eligible companies are found, state that clearly and advise the student on what CGPA/backlogs to target.\n"
+            "4. Provide a supportive, brief summary concluding the response."
+        )
+        
+        try:
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            from langchain_core.prompts import ChatPromptTemplate
+            llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, max_retries=0)
+            prompt_template = ChatPromptTemplate.from_messages([
+                ("system", system_prompt),
+                ("user", "{query}")
+            ])
+            chain = prompt_template | llm
+            response = chain.invoke({"query": query})
+            answer = response.content
+        except Exception as e:
+            print(f"[*] Info: Strategy Synthesis LLM call failed: {e}")
+            answer = f"Here are your eligible companies:\n\n{opps_str}"
+            
+        return {
+            "final_answer": answer,
+            "sources": ["section_1:_company_eligibility_profiles"],
+            "confidence": 0.95
+        }
+
     conflict_detected = state.get("conflict_detected", False)
     conflict_details = state.get("conflict_details")
+
     
     # Gather all active context documents
     all_docs = []

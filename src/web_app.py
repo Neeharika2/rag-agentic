@@ -13,18 +13,41 @@ app = FastAPI(
     version="1.0.0"
 )
 
+from typing import List, Dict, Any, Optional
+
 # Define request schema
+class StudentProfileSchema(BaseModel):
+    cgpa: Optional[float] = None
+    skills: List[str] = []
+    weaknesses: List[str] = []
+    interests: List[str] = []
+    backlogs: int = 0
+    projects_count: int = 0
+
 class QueryRequest(BaseModel):
     query: str
+    student_profile: Optional[StudentProfileSchema] = None
 
 # Define response schemas
 class DocumentResponse(BaseModel):
     text: str
     section: str
 
+class CompanyOpportunity(BaseModel):
+    company: str
+    package: float
+    min_cgpa: float
+    max_backlogs: int
+    tech_focus: str
+    bond: int
+    skill_score: float
+
 class QueryResponse(BaseModel):
     response: str
     documents: List[DocumentResponse]
+    student_profile: Optional[Dict[str, Any]] = None
+    opportunities: Optional[List[CompanyOpportunity]] = None
+    is_strategy_query: Optional[bool] = None
 
 # Compile the LangGraph pipeline workflow once at startup
 rag_graph = build_rag_graph()
@@ -45,6 +68,9 @@ async def query_endpoint(request: QueryRequest):
             "user_query": query_str,
             "query": query_str
         }
+        
+        if request.student_profile:
+            initial_state["student_profile"] = request.student_profile.dict()
         
         # Invoke the state graph synchronously
         final_state = rag_graph.invoke(initial_state)
@@ -68,8 +94,12 @@ async def query_endpoint(request: QueryRequest):
             
         return QueryResponse(
             response=response_text,
-            documents=docs_response
+            documents=docs_response,
+            student_profile=final_state.get("student_profile"),
+            opportunities=final_state.get("opportunities"),
+            is_strategy_query=final_state.get("is_strategy_query")
         )
+
     except Exception as e:
         # Return internal error details if execution fails
         raise HTTPException(status_code=500, detail=f"Graph execution failed: {str(e)}")

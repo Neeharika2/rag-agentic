@@ -20,3 +20,6 @@ from src.agent_nodes.validation import (
 )
 from src.agent_nodes.synthesis import synthesis_node
 from src.agent_nodes.websearch import websearch_node
+from src.agent_nodes.profile_builder import profile_builder_node
+from src.agent_nodes.opportunity_detector import opportunity_detector_node
+

@@ -254,6 +254,171 @@
                 background-position: -200% 0;
             }
         }
+
+        /* Tabs Navigation styling */
+        .tabs-container {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 0.75rem;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            position: relative;
+            transition: color 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -0.75rem;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent);
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Questionnaire styling */
+        .questionnaire-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .question-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .question-label {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .question-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        input[type="number"], textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            background: #050505;
+            border: 1px solid var(--card-border);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        input[type="number"]:focus, textarea:focus {
+            border-color: var(--accent);
+            background: #000000;
+        }
+
+        /* Opportunity Card Grids */
+        .opp-section {
+            margin-top: 1.5rem;
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .opp-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+
+        .opportunity-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .opportunity-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .opp-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .opp-company {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .opp-pkg {
+            background: var(--text-primary);
+            color: var(--accent-inverse);
+            font-weight: 700;
+            font-size: 0.8rem;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+        }
+
+        .opp-details {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+        }
+
+        .opp-tech {
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding-top: 0.5rem;
+            color: #cbd5e1;
+        }
     </style>
 </head>
 <body>
@@ -265,7 +430,14 @@
 
         <!-- Search Input Card -->
         <main class="minimal-card">
-            <form id="qaForm" class="search-form">
+            <!-- Tabs Menu -->
+            <div class="tabs-container">
+                <button class="tab-btn active" id="qaTabBtn">General Q&A</button>
+                <button class="tab-btn" id="strategyTabBtn">Strategy Advisor</button>
+            </div>
+
+            <!-- Form 1: General Q&A Form -->
+            <form id="qaForm" class="search-form form-section active">
                 <label for="queryInput">Enter your placement query</label>
                 <div class="input-group">
                     <input 
@@ -281,6 +453,51 @@
                 </button>
             </form>
 
+            <!-- Form 2: Strategy Advisor Questionnaire Form -->
+            <form id="strategyForm" class="search-form form-section">
+                <div class="questionnaire-container">
+                    <div class="question-group">
+                        <label class="question-label" for="cgpaInput">1. What is your current CGPA?</label>
+                        <span class="question-desc">Input a decimal score (e.g. 8.4)</span>
+                        <input type="number" id="cgpaInput" step="0.01" min="0" max="10" placeholder="e.g., 8.2" required>
+                    </div>
+
+                    <div class="question-group">
+                        <label class="question-label" for="backlogsInput">2. How many active backlogs do you have?</label>
+                        <span class="question-desc">Active backlog count (e.g. 0)</span>
+                        <input type="number" id="backlogsInput" min="0" value="0" required>
+                    </div>
+
+                    <div class="question-group">
+                        <label class="question-label" for="skillsInput">3. What are your key technical skills?</label>
+                        <span class="question-desc">Separated by commas (e.g., Python, SQL, React)</span>
+                        <textarea id="skillsInput" rows="2" placeholder="e.g., Python, Java, SQL, Machine Learning" required></textarea>
+                    </div>
+
+                    <div class="question-group">
+                        <label class="question-label" for="weaknessesInput">4. What are your areas of weakness?</label>
+                        <span class="question-desc">Skills or topics you need to work on</span>
+                        <textarea id="weaknessesInput" rows="2" placeholder="e.g., DSA, Operating Systems, DBMS"></textarea>
+                    </div>
+
+                    <div class="question-group">
+                        <label class="question-label" for="interestsInput">5. What are your target roles / interests?</label>
+                        <span class="question-desc">Positions you'd like to apply for</span>
+                        <textarea id="interestsInput" rows="1" placeholder="e.g., SDE, Data Analyst, Intern"></textarea>
+                    </div>
+
+                    <div class="question-group">
+                        <label class="question-label" for="projectsInput">6. How many technical projects have you built?</label>
+                        <span class="question-desc">Number of projects (e.g., 2)</span>
+                        <input type="number" id="projectsInput" min="0" value="0" required>
+                    </div>
+                </div>
+
+                <button type="submit" id="strategySubmitBtn">
+                    <span>Generate Advisor Report</span>
+                </button>
+            </form>
+
             <!-- Loading Indicator -->
             <div id="loader" class="loader">
                 <div class="skeleton skeleton-title"></div>
@@ -292,11 +509,17 @@
                 <hr style="border: 0; border-top: 1px solid var(--card-border); margin: 1.5rem 0;">
                 
                 <div>
-                    <h3 class="response-header">Generated Answer</h3>
+                    <h3 class="response-header" id="responseHeader">Generated Answer</h3>
                     <div id="answerText" class="answer-text"></div>
                 </div>
 
-                <div class="context-section">
+                <!-- Opportunities Matches Grid (Shown for Strategy Queries) -->
+                <div id="oppSection" class="opp-section">
+                    <h4 class="context-title">Eligible Opportunity Matches</h4>
+                    <div id="oppGrid" class="opp-grid"></div>
+                </div>
+
+                <div class="context-section" id="contextSection">
                     <h4 class="context-title">Retrieved Reference Documents</h4>
                     <div id="docsGrid" class="docs-grid"></div>
                 </div>
@@ -306,34 +529,66 @@
 
     <!-- Frontend Interactive Javascript Logic -->
     <script>
-        document.getElementById('qaForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const queryInput = document.getElementById('queryInput');
-            const submitBtn = document.getElementById('submitBtn');
+        // Tab switching logic
+        const qaTabBtn = document.getElementById('qaTabBtn');
+        const strategyTabBtn = document.getElementById('strategyTabBtn');
+        const qaForm = document.getElementById('qaForm');
+        const strategyForm = document.getElementById('strategyForm');
+        const responseHeader = document.getElementById('responseHeader');
+        const results = document.getElementById('results');
+
+        qaTabBtn.addEventListener('click', () => {
+            qaTabBtn.classList.add('active');
+            strategyTabBtn.classList.remove('active');
+            qaForm.classList.add('active');
+            strategyForm.classList.remove('active');
+            results.style.display = 'none';
+        });
+
+        strategyTabBtn.addEventListener('click', () => {
+            strategyTabBtn.classList.add('active');
+            qaTabBtn.classList.remove('active');
+            strategyForm.classList.add('active');
+            qaForm.classList.remove('active');
+            results.style.display = 'none';
+        });
+
+        // Common handler for submits
+        async function handleQuerySubmission(queryText, profilePayload = null) {
+            const submitBtn = qaForm.classList.contains('active') ? document.getElementById('submitBtn') : document.getElementById('strategySubmitBtn');
             const loader = document.getElementById('loader');
-            const results = document.getElementById('results');
             const answerText = document.getElementById('answerText');
             const docsGrid = document.getElementById('docsGrid');
-
-            const query = queryInput.value.trim();
-            if (!query) return;
+            const oppSection = document.getElementById('oppSection');
+            const oppGrid = document.getElementById('oppGrid');
+            const contextSection = document.getElementById('contextSection');
 
             // Trigger loading animation states
             submitBtn.disabled = true;
             submitBtn.style.opacity = '0.7';
             loader.style.display = 'flex';
             results.style.display = 'none';
+            oppSection.style.display = 'none';
+            contextSection.style.display = 'flex';
             docsGrid.innerHTML = '';
+            oppGrid.innerHTML = '';
 
             try {
-                // Call uvicorn FastAPI backend server endpoint
+                const requestBody = {
+                    query: queryText
+                };
+
+                if (profilePayload) {
+                    requestBody.student_profile = profilePayload;
+                }
+
+                // Call FastAPI backend endpoint
                 const response = await fetch('/api/query', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ query: query })
+                    body: JSON.stringify(requestBody)
                 });
 
                 if (!response.ok) {
@@ -343,10 +598,35 @@
                 const data = await response.json();
 
                 // Inject response answer
+                responseHeader.textContent = data.is_strategy_query ? 'Placement Advisor Report' : 'Generated Answer';
                 answerText.innerHTML = formatMarkdown(data.response || 'No response generated.');
 
-                // Render retrieved document chunks dynamically into grid cards
-                if (data.documents && data.documents.length > 0) {
+                // Render eligible opportunities if strategy query
+                if (data.is_strategy_query && data.opportunities && data.opportunities.length > 0) {
+                    data.opportunities.forEach(opp => {
+                        const card = document.createElement('div');
+                        card.className = 'opportunity-card';
+
+                        card.innerHTML = `
+                            <div class="opp-header">
+                                <span class="opp-company">${opp.company}</span>
+                                <span class="opp-pkg">${opp.package} LPA</span>
+                            </div>
+                            <div class="opp-details">
+                                <div><strong>CGPA Cutoff:</strong> ${opp.min_cgpa}</div>
+                                <div><strong>Max Backlogs:</strong> ${opp.max_backlogs}</div>
+                                <div><strong>Bond Period:</strong> ${opp.bond > 0 ? opp.bond + ' Yrs' : 'None'}</div>
+                                <div><strong>Skill Score:</strong> ${opp.skill_score.toFixed(1)}</div>
+                            </div>
+                            <div class="opp-tech">
+                                <strong>Focus:</strong> ${opp.tech_focus}
+                            </div>
+                        `;
+                        oppGrid.appendChild(card);
+                    });
+                    oppSection.style.display = 'flex';
+                    contextSection.style.display = 'none'; // Hide raw documents in strategy mode for simplicity
+                } else if (data.documents && data.documents.length > 0) {
                     data.documents.forEach(doc => {
                         const card = document.createElement('div');
                         card.className = 'doc-card';
@@ -371,7 +651,7 @@
 
             } catch (err) {
                 console.error(err);
-                answerText.innerHTML = `<span style="color: #ef4444; font-weight: 500;">Failed to fetch answer. Please make sure the backend server is running and key environments are configured.</span>`;
+                answerText.innerHTML = `<span style="color: #ef4444; font-weight: 500;">Failed to fetch answer. Please make sure the backend server is running and API keys are set.</span>`;
                 results.style.display = 'flex';
             } finally {
                 // Disable loading animation states
@@ -379,9 +659,44 @@
                 submitBtn.style.opacity = '1.0';
                 loader.style.display = 'none';
             }
+        }
+
+        // Q&A form submit
+        document.getElementById('qaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const queryInput = document.getElementById('queryInput');
+            const query = queryInput.value.trim();
+            if (!query) return;
+            await handleQuerySubmission(query);
         });
 
-        // Basic helper function to parse basic markdown styles (bullet list bold markers)
+        // Strategy form submit
+        document.getElementById('strategyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const cgpaVal = parseFloat(document.getElementById('cgpaInput').value);
+            const backlogsVal = parseInt(document.getElementById('backlogsInput').value);
+            
+            const skillsVal = document.getElementById('skillsInput').value.split(',').map(s => s.trim()).filter(s => s);
+            const weaknessesVal = document.getElementById('weaknessesInput').value.split(',').map(s => s.trim()).filter(s => s);
+            const interestsVal = document.getElementById('interestsInput').value.split(',').map(s => s.trim()).filter(s => s);
+            const projectsVal = parseInt(document.getElementById('projectsInput').value);
+
+            const profilePayload = {
+                cgpa: cgpaVal,
+                skills: skillsVal,
+                weaknesses: weaknessesVal,
+                interests: interestsVal,
+                backlogs: backlogsVal,
+                projects_count: projectsVal
+            };
+
+            const queryText = `Analyze strategy advisor recommendation for student profile (CGPA: ${cgpaVal}, Skills: ${skillsVal.join(', ')}, Backlogs: ${backlogsVal})`;
+            
+            await handleQuerySubmission(queryText, profilePayload);
+        });
+
+        // Basic helper function to parse basic markdown styles
         function formatMarkdown(text) {
             return text
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -391,3 +706,4 @@
     </script>
 </body>
 </html>
+
