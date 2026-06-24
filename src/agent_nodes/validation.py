@@ -185,7 +185,7 @@ def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     log_retrieved_chunks(query, all_docs)
     
     conflict_details = detect_conflicts_dynamically(all_docs, target_companies)
-    conflict_detected = conflict_details is not None
+    conflict_detected = conflict_details is not None and len(target_companies) > 0
     
     # If we retrieved conflict docs, append them to retrieved_contexts so synthesis gets them
     ret_dict = {

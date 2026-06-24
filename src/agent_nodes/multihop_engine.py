@@ -25,6 +25,9 @@ class MultiHopEngine:
         stats_res = store.collection.get(where={"section": "section_7:_overall_placement_statistics"})
         stats_metas = stats_res.get("metadatas", [])
 
+        temporal_res = store.collection.get(where={"section": "n_rag_challenge_-_temporal_reasoning"})
+        temporal_metas = temporal_res.get("metadatas", [])
+
         results = store.collection.get(include=["metadatas"])
         all_metas = results.get("metadatas", [])
 
@@ -106,6 +109,35 @@ class MultiHopEngine:
             unified[norm_comp]["avg_cgpa_cutoff"] = float(meta.get("avg_cgpa_cutoff") or 0.0) if meta.get("avg_cgpa_cutoff") else None
             unified[norm_comp]["bond_free"] = meta.get("bond-free?", "").strip().lower() == "yes"
 
+        for meta in temporal_metas:
+            comp = meta.get("company", "")
+            if not comp:
+                continue
+            norm_comp = normalize_company_name(comp)
+            if norm_comp not in unified:
+                unified[norm_comp] = {
+                    "company": comp, "norm_company": norm_comp,
+                    "min_cgpa": None, "max_backlogs": None,
+                    "package": None, "bond": None, "tech_focus": set()
+                }
+            year_keys = []
+            for key in meta.keys():
+                match = re.search(r"(\d{4})", key)
+                if match:
+                    try:
+                        year_val = int(match.group(1))
+                        year_keys.append((year_val, key))
+                    except ValueError:
+                        continue
+            if len(year_keys) >= 2:
+                year_keys.sort()
+                _, earliest_key = year_keys[0]
+                _, latest_key = year_keys[-1]
+                unified[norm_comp]["earliest_pkg"] = meta.get(earliest_key)
+                unified[norm_comp]["latest_pkg"] = meta.get(latest_key)
+                unified[norm_comp]["earliest_year"] = year_keys[0][0]
+                unified[norm_comp]["latest_year"] = year_keys[-1][0]
+
         for comp_norm, focuses in company_tech_focuses.items():
             if comp_norm in unified:
                 unified[comp_norm]["tech_focus"].update(focuses)
@@ -114,7 +146,22 @@ class MultiHopEngine:
 
     @staticmethod
     def resolve_query(query: str) -> Optional[Document]:
+        from .company_utils import get_canonical_companies
+        query_lower = query.lower()
+        
+        # Extract entities mentioned in query for comparison fallback
+        entities = []
+        canonical_companies = get_canonical_companies()
+        for c in canonical_companies:
+            clean_c = c.replace(";", "")
+            if clean_c.lower() in query_lower:
+                entities.append(c)
+                
+        is_compare = "compare" in query_lower and len(entities) >= 2
+
         params = MultiHopEngine.resolver.parse(query)
+        params["is_compare"] = is_compare
+        
         active_params = 0
         if params["cgpa"] is not None or params["backlogs"] is not None:
             active_params += 1
@@ -127,11 +174,18 @@ class MultiHopEngine:
         if params["tech_focus"] is not None:
             active_params += 1
 
-        if active_params < 2:
+        if active_params < 2 and not is_compare:
             return None
 
         profiles = MultiHopEngine.get_unified_profiles()
-        filtered = MultiHopEngine.filter_engine.filter(profiles, params)
+        
+        if is_compare:
+            from .company_utils import normalize_company_name
+            norm_entities = [normalize_company_name(e) for e in entities]
+            filtered = [p for p in profiles if p["norm_company"] in norm_entities]
+        else:
+            filtered = MultiHopEngine.filter_engine.filter(profiles, params)
+            
         ranked = MultiHopEngine.ranker.rank(filtered, params)
         trace = MultiHopEngine.ranker.build_trace(ranked, params)
 

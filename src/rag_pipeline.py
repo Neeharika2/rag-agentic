@@ -51,6 +51,8 @@ class PlacementAgentState(TypedDict):
     confidence: float
 
     student_profile: Optional[Dict[str, Any]]
+    baseline_profile: Optional[Dict[str, Any]]
+    is_simulation: Optional[bool]
     opportunities: Optional[List[Dict[str, Any]]]
     is_strategy_query: Optional[bool]
     gaps: Optional[List[Dict[str, Any]]]

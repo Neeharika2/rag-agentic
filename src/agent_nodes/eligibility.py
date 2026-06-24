@@ -47,7 +47,7 @@ def eligibility_node(state: Dict[str, Any]) -> Dict[str, Any]:
     metas = results["metadatas"]
     
     # Parse filtering thresholds from the user query
-    is_student_profile = any(x in query.lower() for x in ["student with", "i have", "my cgpa", "eligible with", "i've gpa"])
+    is_student_profile = any(x in query.lower() for x in ["student with", "i have", "my cgpa", "eligible with", "i've gpa", "students"]) or "+" in query
     cgpa_val = parse_cgpa_from_text(query)
     backlog_val = parse_backlogs_from_text(query)
     
@@ -57,8 +57,11 @@ def eligibility_node(state: Dict[str, Any]) -> Dict[str, Any]:
     min_backlogs_at_least = None
     
     if is_student_profile:
-        student_cgpa = cgpa_val
-        student_backlogs = backlog_val
+        if "+" in query and cgpa_val is not None:
+            student_cgpa = 10.0
+        else:
+            student_cgpa = cgpa_val
+        student_backlogs = backlog_val if backlog_val is not None else (0 if "zero backlog" in query.lower() or "no backlog" in query.lower() else None)
     else:
         if any(x in query.lower() for x in ["above", "greater than", ">"]):
             min_cgpa_above = cgpa_val

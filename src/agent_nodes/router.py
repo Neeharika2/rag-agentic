@@ -76,7 +76,7 @@ def router_node(state: Dict[str, Any]) -> Dict[str, Any]:
     entities = []
     
     try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
+        from .llm_utils import get_structured_llm
         from pydantic import BaseModel, Field
         from typing import List
         
@@ -84,8 +84,7 @@ def router_node(state: Dict[str, Any]) -> Dict[str, Any]:
             query_type: str = Field(description="Intent class of the query. Must be one of: 'eligibility', 'interview_prep', 'hiring', 'statistics', 'trend', 'conflict', 'fallback'")
             entities: List[str] = Field(description="List of company names extracted and normalized from the query. Convert variation names to their normalized canonical forms.")
 
-        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, max_retries=0)
-        structured_llm = llm.with_structured_output(RouterOutput)
+        structured_llm = get_structured_llm(RouterOutput, temperature=0)
         
         canonical_companies = get_canonical_companies()
         canonical_list_str = ", ".join(canonical_companies)
@@ -96,13 +95,13 @@ def router_node(state: Dict[str, Any]) -> Dict[str, Any]:
             f"Canonical Company List: [{canonical_list_str}]\n\n"
             f"Instructions:\n"
             f"1. Classify the query intent into one of the following classes:\n"
-            f"   - 'eligibility': Questions about cutoffs, GPA, active backlogs, bonds, and package thresholds.\n"
-             f"   - 'interview_prep': Questions about selection rounds, topics, technical focus, preparing (NOT about personal interview experiences).\n"
-             f"   - 'hiring': Questions about counts of hires, software development roles, intern/analyst count rankings.\n"
-             f"   - 'statistics': Placement statistics aggregations, averages, or ratios (e.g. package-to-CGPA).\n"
-             f"   - 'trend': Temporal reasoning or package comparisons across multiple years (e.g. 2021 to 2024 growth).\n"
-             f"   - 'conflict': Explicit conflict or discrepancy questions (e.g. 'Is Amazon cutoff 6.4 or 7.0?', 'conflicting data').\n"
-             f"   - 'fallback': Out of corpus, stock prices, subjective opinions (e.g. 'interview experience'), or vague/unrelated queries.\n\n"
+            f"   - 'eligibility': Questions about cutoffs, GPA, active backlogs, bonds, package thresholds, comparing companies on multiple dimensions, or listing/ranking eligible companies based on student CGPA/backlogs.\n"
+            f"   - 'interview_prep': Questions about selection rounds, topics, technical/programming focus (e.g. 'Python-focused company'), preparing, or queries requiring technical focus information combined with hiring statistics.\n"
+            f"   - 'hiring': Questions about counts of hires, software development roles, intern/analyst count rankings (unless combined with technical/programming focus).\n"
+            f"   - 'statistics': Placement statistics aggregations, averages, or ratios (e.g. package-to-CGPA ratio, average package calculation).\n"
+            f"   - 'trend': Temporal reasoning or package comparisons across multiple years (e.g. 2021 to 2024 growth).\n"
+            f"   - 'conflict': Explicit conflict or discrepancy questions (e.g. 'Is Amazon cutoff 6.4 or 7.0?', 'conflicting data').\n"
+            f"   - 'fallback': Out of corpus queries (e.g., stock prices, global salary rankings, stock price, general facts not in the SVECW placement dataset), subjective opinions, or vague/unrelated queries.\n\n"
             f"2. Extract company names mentioned. Resolve aliases to match exactly the canonical companies in the list."
         )
         
@@ -117,6 +116,13 @@ def router_node(state: Dict[str, Any]) -> Dict[str, Any]:
         query_type = rule_res["query_type"]
         entities = rule_res["entities"]
         
+    # Overrides to correct LLM routing mistakes
+    query_lower = query.lower()
+    if query_type == "statistics":
+        stat_keywords = ["average", "avg", "ratio", "offers", "statistics", "stats", "sum", "total", "count", "min_offers", "max_offers"]
+        if not any(x in query_lower for x in stat_keywords):
+            query_type = "eligibility"
+            
     return {
         "query_type": query_type,
         "entities": entities

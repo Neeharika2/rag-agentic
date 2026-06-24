@@ -49,21 +49,52 @@ def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
             if sec.startswith("n_") and "technical_focus" in sec and company_clean in sec.lower()
         ]
         
+        has_sec = False
         for sec in matching_sections:
             sec_results = store.collection.get(where={"section": sec})
             docs = sec_results["documents"]
             metas = sec_results["metadatas"]
             for d, m in zip(docs, metas):
                 matched_docs.append(Document(page_content=d, metadata=m))
+                has_sec = True
+                
+        # If no specific technical_focus section was found for this company, fetch its section_1 profile
+        if not has_sec:
+            try:
+                sec1_results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+                for d, m in zip(sec1_results["documents"], sec1_results["metadatas"]):
+                    if company_clean in d.lower() or company_clean in m.get("company", "").lower():
+                        matched_docs.append(Document(page_content=d, metadata=m))
+            except Exception as e:
+                print(f"[*] Warning: Could not retrieve fallback section_1 for {company}: {e}")
                 
     # Fallback to similarity search if no specific sections matched
     if not matched_docs:
-        raw_results = store.search(query, limit=5, filter_dict={"type": "tabular"})
-        # Filter raw results to matching sections if any
-        matched_docs = [
-            Document(page_content=r["text"], metadata=r["metadata"]) 
-            for r in raw_results 
-            if "technical_focus" in r["metadata"].get("section", "")
-        ]
+        raw_results = store.search(query, limit=10, filter_dict={"type": "tabular"})
+        for r in raw_results:
+            sec = r["metadata"].get("section", "")
+            if "technical_focus" in sec or "section_1" in sec:
+                matched_docs.append(Document(page_content=r["text"], metadata=r["metadata"]))
+                
+    # Proactively retrieve section_1 profiles matching the technical focus programming languages if requested
+    query_lower = query.lower()
+    languages = []
+    if "python" in query_lower:
+        languages.append("python")
+    if "java" in query_lower:
+        languages.append("java")
+    if "c++" in query_lower or "cpp" in query_lower:
+        languages.append("c++")
+        
+    if languages:
+        try:
+            sec1_results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+            for d, m in zip(sec1_results["documents"], sec1_results["metadatas"]):
+                content_lower = d.lower()
+                if any(lang in content_lower for lang in languages):
+                    if not any(d == md.page_content for md in matched_docs):
+                        matched_docs.append(Document(page_content=d, metadata=m))
+        except Exception as e:
+            print(f"[*] Warning: Could not retrieve language-focused section_1 profiles: {e}")
         
     return {"retrieved_contexts": matched_docs}

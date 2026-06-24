@@ -8,6 +8,23 @@ class ResultRanker:
         return filtered
 
     def build_trace(self, filtered: List[Dict], params: Dict[str, Any]) -> str:
+        if params.get("is_compare"):
+            trace = "Multi-Hop Reasoning Trace for Comparison:\n"
+            for p in filtered:
+                tf_str = ", ".join(p.get("tech_focus", [])) if p.get("tech_focus") else "None"
+                trace += f"Company: {p['company']}\n"
+                trace += f"  - Min CGPA: {p.get('min_cgpa')}\n"
+                trace += f"  - Max Backlogs: {p.get('max_backlogs')}\n"
+                trace += f"  - Package: {p.get('package')} LPA\n"
+                trace += f"  - Bond: {p.get('bond')} Yrs\n"
+                trace += f"  - Tech Focus: {tf_str}\n"
+                if "sde" in p:
+                    trace += f"  - Hiring Details: SDE={p.get('sde', 0)}, Analyst={p.get('analyst', 0)}, Officer={p.get('officer', 0)}, Intern={p.get('intern', 0)}, Total={p.get('total', 0)}\n"
+                if "earliest_pkg" in p:
+                    trace += f"  - Package Trend: {p.get('earliest_year')}: {p.get('earliest_pkg')} LPA -> {p.get('latest_year')}: {p.get('latest_pkg')} LPA\n"
+                trace += "\n"
+            return trace
+
         trace = "Multi-Hop Reasoning Trace:\n"
         step = 1
 

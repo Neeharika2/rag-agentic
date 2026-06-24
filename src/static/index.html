@@ -9,18 +9,29 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
+    <!-- Include Chart.js and marked.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
     <style>
-        /* CSS Variables for Premium Monochrome Minimalist Palette */
+        /* CSS Variables for Premium Dark/Monochrome Theme */
         :root {
-            --bg-color: #000000;
-            --card-bg: #0a0a0a;
-            --card-border: #222222;
-            --text-primary: #fafafa;
-            --text-secondary: #888888;
-            --border-hover: #444444;
+            --bg-color: #050505;
+            --panel-bg: rgba(18, 18, 18, 0.6);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
             --accent: #ffffff;
             --accent-inverse: #000000;
-            --shadow-primary: 0 4px 24px rgba(0, 0, 0, 0.6);
+            --accent-glow: rgba(255, 255, 255, 0.1);
+            
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.15);
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            
+            --transition-speed: 0.2s;
         }
 
         * {
@@ -36,698 +47,1249 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            overflow-x: hidden;
-            padding: 3rem 1rem;
-        }
-
-        /* Container Layout */
-        .app-container {
-            width: 100%;
-            max-width: 800px;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
+            overflow: hidden;
         }
 
         header {
-            text-align: center;
-            margin-bottom: 1rem;
-        }
-
-        h1 {
-            font-size: 2.2rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-            letter-spacing: -0.8px;
-        }
-
-        .subtitle {
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-            font-weight: 300;
-        }
-
-        /* Minimalist Card Style */
-        .minimal-card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 12px;
-            padding: 2.5rem;
-            box-shadow: var(--shadow-primary);
-            transition: border-color 0.2s ease;
-        }
-
-        .minimal-card:hover {
-            border-color: var(--border-hover);
-        }
-
-        /* Search Form Styles */
-        .search-form {
+            padding: 1.25rem 2rem;
+            border-bottom: 1px solid var(--panel-border);
             display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        label {
-            font-size: 1rem;
-            font-weight: 500;
-            color: var(--text-secondary);
-            margin-left: 2px;
-        }
-
-        .input-group {
-            position: relative;
-            display: flex;
+            justify-content: space-between;
             align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            z-index: 10;
         }
 
-        input[type="text"] {
-            width: 100%;
-            padding: 1rem 1.25rem;
-            border-radius: 8px;
-            background: #050505;
-            border: 1px solid var(--card-border);
-            color: var(--text-primary);
-            font-size: 1.05rem;
-            font-family: inherit;
-            outline: none;
-            transition: border-color 0.2s ease;
-        }
-
-        input[type="text"]:focus {
-            border-color: var(--accent);
-            background: #000000;
-        }
-
-        /* Solid Monochrome Button */
-        button[type="submit"] {
-            background: var(--accent);
-            border: 1px solid var(--accent);
-            border-radius: 8px;
-            color: var(--accent-inverse);
-            padding: 1rem;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        .header-title h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
             display: flex;
-            justify-content: center;
             align-items: center;
             gap: 0.5rem;
         }
 
-        button[type="submit"]:hover {
-            background: var(--accent-inverse);
-            color: var(--accent);
-            border-color: var(--accent);
-        }
-
-        button[type="submit"]:active {
-            transform: translateY(1px);
-        }
-
-        /* Results Display */
-        .results-container {
-            display: none; /* Shown dynamically */
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .response-header {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            border-left: 2px solid var(--accent);
-            padding-left: 0.75rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .answer-text {
-            line-height: 1.7;
-            font-size: 1.1rem;
-            color: #e2e8f0;
-            white-space: pre-wrap; /* Preserve markdown formats */
-        }
-
-        /* Context Document Chunks Style */
-        .context-section {
-            margin-top: 1rem;
-        }
-
-        .context-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .docs-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1rem;
-        }
-
-        .doc-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--card-border);
-            border-radius: 8px;
-            padding: 1.2rem;
-            font-size: 0.95rem;
-            line-height: 1.6;
-            color: #d4d4d4;
-            transition: border-color 0.2s ease;
-        }
-
-        .doc-card:hover {
-            background: rgba(255, 255, 255, 0.03);
-            border-color: var(--border-hover);
-        }
-
-        .doc-badge {
-            display: inline-block;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: var(--text-primary);
-            font-weight: 600;
-            font-size: 0.7rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 4px;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* Pulse Loading State Style */
-        .loader {
-            display: none;
-            flex-direction: column;
-            gap: 1rem;
-            padding: 1rem 0;
-        }
-
-        .skeleton {
-            background: linear-gradient(90deg, #111111 25%, #222222 50%, #111111 75%);
-            background-size: 200% 100%;
-            animation: loading-pulse 1.5s infinite;
-            border-radius: 4px;
-        }
-
-        .skeleton-title {
-            width: 30%;
-            height: 24px;
-        }
-
-        .skeleton-text {
-            width: 100%;
-            height: 80px;
-        }
-
-        @keyframes loading-pulse {
-            0% {
-                background-position: 200% 0;
-            }
-            100% {
-                background-position: -200% 0;
-            }
-        }
-
-        /* Tabs Navigation styling */
-        .tabs-container {
-            display: flex;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-            border-bottom: 1px solid var(--card-border);
-            padding-bottom: 0.75rem;
-        }
-
-        .tab-btn {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 1.05rem;
-            font-weight: 500;
-            font-family: inherit;
-            cursor: pointer;
-            padding: 0.25rem 0.5rem;
-            position: relative;
-            transition: color 0.2s ease;
-        }
-
-        .tab-btn:hover {
-            color: var(--text-primary);
-        }
-
-        .tab-btn.active {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-
-        .tab-btn.active::after {
+        .header-title h1::before {
             content: '';
-            position: absolute;
-            bottom: -0.75rem;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--accent);
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #fff;
         }
 
-        .form-section {
-            display: none;
-        }
-
-        .form-section.active {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        /* Questionnaire styling */
-        .questionnaire-container {
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-            background: rgba(255, 255, 255, 0.01);
-            border: 1px solid rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .question-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-        }
-
-        .question-label {
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .question-desc {
-            font-size: 0.85rem;
+        .header-title p {
+            font-size: 0.8rem;
             color: var(--text-secondary);
+            margin-top: 0.1rem;
         }
 
-        input[type="number"], textarea {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            background: #050505;
-            border: 1px solid var(--card-border);
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-family: inherit;
-            outline: none;
-            transition: border-color 0.2s ease;
-        }
-
-        input[type="number"]:focus, textarea:focus {
-            border-color: var(--accent);
-            background: #000000;
-        }
-
-        /* Opportunity Card Grids */
-        .opp-section {
-            margin-top: 1.5rem;
-            display: none;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .opp-grid {
+        /* 3-Column Dashboard Layout */
+        .dashboard {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 1rem;
+            grid-template-columns: 330px 1fr 350px;
+            height: calc(100vh - 73px);
+            overflow: hidden;
+            background: radial-gradient(circle at top left, #111 0%, #030303 100%);
         }
 
-        .opportunity-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--card-border);
-            border-radius: 10px;
-            padding: 1.2rem;
+        .panel {
+            border-right: 1px solid var(--panel-border);
             display: flex;
             flex-direction: column;
-            gap: 0.6rem;
-            transition: border-color 0.2s ease, transform 0.2s ease;
+            overflow: hidden;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
         }
 
-        .opportunity-card:hover {
-            border-color: var(--border-hover);
-            transform: translateY(-2px);
-        }
-
-        .opp-header {
+        .panel-header {
+            padding: 1.2rem 1.5rem;
+            border-bottom: 1px solid var(--panel-border);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .opp-company {
-            font-size: 1.15rem;
+        .panel-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .panel-content {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Profile Panel Scrollbars */
+        .panel-content::-webkit-scrollbar, 
+        .chat-messages::-webkit-scrollbar {
+            width: 4px;
+        }
+        .panel-content::-webkit-scrollbar-thumb, 
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        /* Form styling */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-label span.value-indicator {
+            color: var(--text-primary);
+            font-size: 0.95rem;
             font-weight: 700;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: #222;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            transition: transform 0.1s ease;
+            box-shadow: 0 0 6px rgba(255,255,255,0.4);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+
+        .counter-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        input[type="number"] {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            padding: 0.55rem 0.75rem;
+            font-size: 0.85rem;
+            font-family: inherit;
+            outline: none;
+            width: 100%;
+            transition: border-color 0.2s ease;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--accent);
+        }
+
+        /* Chips styling */
+        .chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.2rem;
+        }
+
+        .chip {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 100px;
+            padding: 0.3rem 0.65rem;
+            font-size: 0.72rem;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            user-select: none;
+            color: var(--text-secondary);
+        }
+
+        .chip:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.2);
             color: var(--text-primary);
         }
 
-        .opp-pkg {
+        .chip.active {
+            background: var(--accent);
+            color: var(--accent-inverse);
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        .chip-input-group {
+            display: flex;
+            gap: 0.35rem;
+            margin-top: 0.4rem;
+        }
+
+        .chip-input-group input[type="text"] {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            padding: 0.4rem 0.6rem;
+            font-size: 0.75rem;
+            flex: 1;
+            outline: none;
+        }
+
+        .chip-input-group button {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 0 0.6rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .chip-input-group button:hover {
+            background: var(--accent);
+            color: var(--accent-inverse);
+        }
+
+        /* Submit Report Button */
+        .action-btn {
+            background: var(--accent);
+            color: var(--accent-inverse);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all var(--transition-speed) ease;
+            margin-top: 0.5rem;
+        }
+
+        .action-btn:hover {
+            background: transparent;
+            color: var(--accent);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Center Column: Advisor Chat */
+        .chat-panel {
+            border-right: 1px solid var(--panel-border);
+            height: 100%;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            max-width: 80%;
+            animation: slide-up 0.3s ease;
+        }
+
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+            align-items: flex-start;
+            max-width: 90%;
+        }
+
+        .message-bubble {
+            padding: 0.9rem 1.15rem;
+            border-radius: 12px;
+            font-size: 0.92rem;
+            line-height: 1.6;
+        }
+
+        .message.user .message-bubble {
             background: var(--text-primary);
             color: var(--accent-inverse);
-            font-weight: 700;
-            font-size: 0.8rem;
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
+            font-weight: 500;
+            border-bottom-right-radius: 2px;
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
         }
 
-        .opp-details {
+        .message.assistant .message-bubble {
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid var(--panel-border);
+            color: #e2e8f0;
+            border-bottom-left-radius: 2px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+
+        /* Markdown rendered inside chat bubble styling */
+        .message-bubble h1, .message-bubble h2, .message-bubble h3 {
+            margin: 1rem 0 0.5rem 0;
+            font-weight: 600;
+            color: #fff;
+        }
+        .message-bubble h1:first-child, .message-bubble h2:first-child, .message-bubble h3:first-child {
+            margin-top: 0;
+        }
+        .message-bubble p {
+            margin-bottom: 0.75rem;
+        }
+        .message-bubble p:last-child {
+            margin-bottom: 0;
+        }
+        .message-bubble ul, .message-bubble ol {
+            margin-left: 1.2rem;
+            margin-bottom: 0.75rem;
+        }
+        .message-bubble li {
+            margin-bottom: 0.25rem;
+        }
+        .message-bubble strong {
+            color: #fff;
+        }
+        .message-bubble table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.75rem 0;
+            font-size: 0.85rem;
+        }
+        .message-bubble th, .message-bubble td {
+            border: 1px solid var(--panel-border);
+            padding: 0.5rem;
+            text-align: left;
+        }
+        .message-bubble th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+        }
+
+        .message-sender {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: var(--text-muted);
+        }
+
+        .chat-input-area {
+            padding: 1.2rem 1.5rem;
+            border-top: 1px solid var(--panel-border);
+            background: rgba(0, 0, 0, 0.35);
+        }
+
+        .chat-form {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: #090909;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            padding: 0.75rem 1.1rem;
+            font-size: 0.9rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .chat-input:focus {
+            border-color: var(--accent);
+        }
+
+        .chat-send-btn {
+            background: var(--accent);
+            color: var(--accent-inverse);
+            border: none;
+            border-radius: 8px;
+            padding: 0 1.2rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: opacity 0.2s ease;
+        }
+
+        .chat-send-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Right Column: Analytics & Opportunities */
+        .analytics-panel {
+            border-right: none;
+        }
+
+        .analytics-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .analytics-section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            border-left: 2px solid var(--text-muted);
+            padding-left: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .opp-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            max-height: 280px;
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        .opp-list::-webkit-scrollbar {
+            width: 3px;
+        }
+        .opp-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 1px;
+        }
+
+        .opp-item-card {
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 0.75rem 0.9rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            transition: all 0.2s ease;
+        }
+
+        .opp-item-card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .opp-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .opp-item-name {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .opp-item-pkg {
+            font-size: 0.7rem;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 4px;
+            padding: 0.1rem 0.3rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .opp-item-readiness {
+            font-size: 0.8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .opp-item-delta {
+            color: var(--success);
+            font-weight: 600;
+            font-size: 0.72rem;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 4px;
+            background: #151515;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 0.1rem;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .opp-item-reason {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-style: italic;
+            line-height: 1.3;
+            margin-top: 0.15rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.03);
+            padding-top: 0.25rem;
+        }
+
+        /* Trend Chart styling */
+        .chart-wrapper {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 0.8rem;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 165px;
+        }
+
+        .clear-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            margin-top: auto;
+            text-align: center;
+            transition: all var(--transition-speed) ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .clear-btn:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        /* Welcoming report widget */
+        .welcome-widget {
+            border: 1px solid var(--panel-border);
+            background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.0) 100%);
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome-widget h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+        }
+
+        .welcome-widget p {
             font-size: 0.85rem;
             color: var(--text-secondary);
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.4rem;
+            line-height: 1.5;
         }
 
-        .opp-tech {
-            font-size: 0.85rem;
-            margin-top: 0.25rem;
-            border-top: 1px solid rgba(255,255,255,0.05);
-            padding-top: 0.5rem;
-            color: #cbd5e1;
+        /* Loading Dots Indicator */
+        .loading-dots {
+            display: flex;
+            gap: 0.25rem;
+            align-items: center;
+            height: 15px;
+        }
+
+        .loading-dots span {
+            width: 6px;
+            height: 6px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            display: inline-block;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        /* Custom scrollbars on panels */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 2px;
         }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <header>
+    <header>
+        <div class="header-title">
             <h1>Placement Intelligence Assistant</h1>
-            <p class="subtitle">Query the LangGraph RAG framework dynamically</p>
-        </header>
+            <p>LangGraph Digital Twin Simulation Dashboard & SVECW Analytics</p>
+        </div>
+    </header>
 
-        <!-- Search Input Card -->
-        <main class="minimal-card">
-            <!-- Tabs Menu -->
-            <div class="tabs-container">
-                <button class="tab-btn active" id="qaTabBtn">General Q&A</button>
-                <button class="tab-btn" id="strategyTabBtn">Strategy Advisor</button>
+    <div class="dashboard">
+        <!-- Column 1: Profile Controller Panel -->
+        <aside class="panel profile-panel">
+            <div class="panel-header">
+                <span class="panel-title">Profile Controller</span>
+            </div>
+            
+            <div class="panel-content">
+                <!-- CGPA Slider -->
+                <div class="form-group">
+                    <label class="form-label" for="cgpaSlider">
+                        CGPA Cutoff / Score
+                        <span class="value-indicator" id="cgpaVal">7.5</span>
+                    </label>
+                    <input type="range" id="cgpaSlider" min="0" max="10" step="0.1" value="7.5">
+                </div>
+
+                <!-- Backlogs & Projects Count Inputs -->
+                <div class="counter-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="backlogsNum">Active Backlogs</label>
+                        <input type="number" id="backlogsNum" min="0" max="10" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="projectsNum">Projects Count</label>
+                        <input type="number" id="projectsNum" min="0" max="10" value="1">
+                    </div>
+                </div>
+
+                <!-- Technical Skills Toggles -->
+                <div class="form-group">
+                    <label class="form-label">Core Skills</label>
+                    <div class="chips-container" id="skillsChips">
+                        <!-- Rendered Dynamically -->
+                    </div>
+                    <div class="chip-input-group">
+                        <input type="text" id="newSkillInput" placeholder="Add custom skill..." autocomplete="off">
+                        <button type="button" id="addSkillBtn">+</button>
+                    </div>
+                </div>
+
+                <!-- Areas of Weaknesses Toggles -->
+                <div class="form-group">
+                    <label class="form-label">Weaknesses / Gaps</label>
+                    <div class="chips-container" id="weaknessesChips">
+                        <!-- Rendered Dynamically -->
+                    </div>
+                    <div class="chip-input-group">
+                        <input type="text" id="newWeaknessInput" placeholder="Add weakness..." autocomplete="off">
+                        <button type="button" id="addWeaknessBtn">+</button>
+                    </div>
+                </div>
+
+                <!-- Target Job Interests Toggles -->
+                <div class="form-group">
+                    <label class="form-label">Job Interests</label>
+                    <div class="chips-container" id="interestsChips">
+                        <!-- Rendered Dynamically -->
+                    </div>
+                    <div class="chip-input-group">
+                        <input type="text" id="newInterestInput" placeholder="Add interest..." autocomplete="off">
+                        <button type="button" id="addInterestBtn">+</button>
+                    </div>
+                </div>
+
+                <!-- Run Assessment Action Button -->
+                <button type="button" class="action-btn" id="generateReportBtn">
+                    Generate Advisor Report
+                </button>
+            </div>
+        </aside>
+
+        <!-- Column 2: Strategy Advisor Chat & Message Console -->
+        <main class="panel chat-panel">
+            <div class="panel-header">
+                <span class="panel-title">Strategy Advisor Console</span>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <!-- Welcome greeting -->
+                <div class="welcome-widget">
+                    <h2>SVECW Careers Advisor</h2>
+                    <p>
+                        Welcome! I am your AI placement assistant connected to the LangGraph RAG network. 
+                        Adjust your profile controls on the left and click <strong>Generate Advisor Report</strong> 
+                        to assess your eligible opportunity matches, or write a custom what-if query in the chat input below 
+                        to simulate learning a skill or raising your CGPA (e.g. <em>"What if I learn Java?"</em> or <em>"What if my CGPA goes up to 8.5?"</em>).
+                    </p>
+                </div>
             </div>
 
-            <!-- Form 1: General Q&A Form -->
-            <form id="qaForm" class="search-form form-section active">
-                <label for="queryInput">Enter your placement query</label>
-                <div class="input-group">
+            <!-- Chat Message Query Input Form -->
+            <div class="chat-input-area">
+                <form class="chat-form" id="chatForm">
                     <input 
                         type="text" 
-                        id="queryInput" 
-                        placeholder="e.g., What is the CGPA cutoff for TCS?" 
-                        required
+                        id="chatInput" 
+                        class="chat-input" 
+                        placeholder="Ask a what-if query or lookup companies..." 
                         autocomplete="off"
+                        required
                     >
-                </div>
-                <button type="submit" id="submitBtn">
-                    <span>Ask Assistant</span>
-                </button>
-            </form>
-
-            <!-- Form 2: Strategy Advisor Questionnaire Form -->
-            <form id="strategyForm" class="search-form form-section">
-                <div class="questionnaire-container">
-                    <div class="question-group">
-                        <label class="question-label" for="cgpaInput">1. What is your current CGPA?</label>
-                        <span class="question-desc">Input a decimal score (e.g. 8.4)</span>
-                        <input type="number" id="cgpaInput" step="0.01" min="0" max="10" placeholder="e.g., 8.2" required>
-                    </div>
-
-                    <div class="question-group">
-                        <label class="question-label" for="backlogsInput">2. How many active backlogs do you have?</label>
-                        <span class="question-desc">Active backlog count (e.g. 0)</span>
-                        <input type="number" id="backlogsInput" min="0" value="0" required>
-                    </div>
-
-                    <div class="question-group">
-                        <label class="question-label" for="skillsInput">3. What are your key technical skills?</label>
-                        <span class="question-desc">Separated by commas (e.g., Python, SQL, React)</span>
-                        <textarea id="skillsInput" rows="2" placeholder="e.g., Python, Java, SQL, Machine Learning" required></textarea>
-                    </div>
-
-                    <div class="question-group">
-                        <label class="question-label" for="weaknessesInput">4. What are your areas of weakness?</label>
-                        <span class="question-desc">Skills or topics you need to work on</span>
-                        <textarea id="weaknessesInput" rows="2" placeholder="e.g., DSA, Operating Systems, DBMS"></textarea>
-                    </div>
-
-                    <div class="question-group">
-                        <label class="question-label" for="interestsInput">5. What are your target roles / interests?</label>
-                        <span class="question-desc">Positions you'd like to apply for</span>
-                        <textarea id="interestsInput" rows="1" placeholder="e.g., SDE, Data Analyst, Intern"></textarea>
-                    </div>
-
-                    <div class="question-group">
-                        <label class="question-label" for="projectsInput">6. How many technical projects have you built?</label>
-                        <span class="question-desc">Number of projects (e.g., 2)</span>
-                        <input type="number" id="projectsInput" min="0" value="0" required>
-                    </div>
-                </div>
-
-                <button type="submit" id="strategySubmitBtn">
-                    <span>Generate Advisor Report</span>
-                </button>
-            </form>
-
-            <!-- Loading Indicator -->
-            <div id="loader" class="loader">
-                <div class="skeleton skeleton-title"></div>
-                <div class="skeleton skeleton-text"></div>
-            </div>
-
-            <!-- Query Answer Area -->
-            <div id="results" class="results-container">
-                <hr style="border: 0; border-top: 1px solid var(--card-border); margin: 1.5rem 0;">
-                
-                <div>
-                    <h3 class="response-header" id="responseHeader">Generated Answer</h3>
-                    <div id="answerText" class="answer-text"></div>
-                </div>
-
-                <!-- Opportunities Matches Grid (Shown for Strategy Queries) -->
-                <div id="oppSection" class="opp-section">
-                    <h4 class="context-title">Eligible Opportunity Matches</h4>
-                    <div id="oppGrid" class="opp-grid"></div>
-                </div>
-
-                <div class="context-section" id="contextSection">
-                    <h4 class="context-title">Retrieved Reference Documents</h4>
-                    <div id="docsGrid" class="docs-grid"></div>
-                </div>
+                    <button type="submit" class="chat-send-btn" id="chatSendBtn">Send</button>
+                </form>
             </div>
         </main>
+
+        <!-- Column 3: Readiness Analytics Dashboard -->
+        <aside class="panel analytics-panel">
+            <div class="panel-header">
+                <span class="panel-title">Readiness Analytics</span>
+            </div>
+            
+            <div class="panel-content" style="gap: 1.8rem;">
+                <!-- Readiness Opportunies Progress List -->
+                <div class="analytics-section">
+                    <h3 class="analytics-section-title">Eligibility Matches</h3>
+                    <div class="opp-list" id="oppList">
+                        <p style="color: var(--text-muted); font-size: 0.8rem; font-style: italic; padding: 0.5rem 0;">
+                            No placement run assessed yet.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Chart.js Score Trend Line Chart -->
+                <div class="analytics-section">
+                    <h3 class="analytics-section-title">Readiness Trend</h3>
+                    <div class="chart-wrapper">
+                        <div class="chart-container">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clear Session History Button -->
+                <button type="button" class="clear-btn" id="clearHistoryBtn">
+                    Reset History Logs
+                </button>
+            </div>
+        </aside>
     </div>
 
-    <!-- Frontend Interactive Javascript Logic -->
+    <!-- Client-side Interactive JavaScript Engine -->
     <script>
-        // Tab switching logic
-        const qaTabBtn = document.getElementById('qaTabBtn');
-        const strategyTabBtn = document.getElementById('strategyTabBtn');
-        const qaForm = document.getElementById('qaForm');
-        const strategyForm = document.getElementById('strategyForm');
-        const responseHeader = document.getElementById('responseHeader');
-        const results = document.getElementById('results');
+        // Core predefined tags for interactive selection
+        const PREDEFINED_SKILLS = ["Python", "Java", "C++", "DSA", "SQL", "React", "Node.js", "Machine Learning", "OS", "DBMS"];
+        const PREDEFINED_WEAKNESSES = ["DSA", "Operating Systems", "DBMS", "Computer Networks", "OOPs", "System Design"];
+        const PREDEFINED_INTERESTS = ["SDE", "Data Analyst", "Intern", "Web Developer", "App Developer", "QA Engineer"];
 
-        qaTabBtn.addEventListener('click', () => {
-            qaTabBtn.classList.add('active');
-            strategyTabBtn.classList.remove('active');
-            qaForm.classList.add('active');
-            strategyForm.classList.remove('active');
-            results.style.display = 'none';
+        // Client State representation
+        let localState = {
+            cgpa: 7.5,
+            backlogs: 0,
+            skills: ["Python"],
+            weaknesses: [],
+            interests: [],
+            projects_count: 1
+        };
+
+        // Reference to ChartJS instance
+        let trendChart = null;
+
+        // Initialize UI Elements & Event Handlers
+        document.addEventListener("DOMContentLoaded", () => {
+            setupSlidersAndCounters();
+            renderPredefinedChips();
+            initializeHistory();
+            
+            // Register panel events
+            document.getElementById("generateReportBtn").addEventListener("click", triggerFormAssessment);
+            document.getElementById("chatForm").addEventListener("submit", handleChatSubmit);
+            document.getElementById("clearHistoryBtn").addEventListener("click", triggerClearHistory);
+            
+            // Add custom tags listeners
+            setupCustomTagAdders();
         });
 
-        strategyTabBtn.addEventListener('click', () => {
-            strategyTabBtn.classList.add('active');
-            qaTabBtn.classList.remove('active');
-            strategyForm.classList.add('active');
-            qaForm.classList.remove('active');
-            results.style.display = 'none';
-        });
+        // Syncs Sliders and counters with local state
+        function setupSlidersAndCounters() {
+            const cgpaSlider = document.getElementById("cgpaSlider");
+            const cgpaVal = document.getElementById("cgpaVal");
+            const backlogsNum = document.getElementById("backlogsNum");
+            const projectsNum = document.getElementById("projectsNum");
 
-        // Common handler for submits
-        async function handleQuerySubmission(queryText, profilePayload = null) {
-            const submitBtn = qaForm.classList.contains('active') ? document.getElementById('submitBtn') : document.getElementById('strategySubmitBtn');
-            const loader = document.getElementById('loader');
-            const answerText = document.getElementById('answerText');
-            const docsGrid = document.getElementById('docsGrid');
-            const oppSection = document.getElementById('oppSection');
-            const oppGrid = document.getElementById('oppGrid');
-            const contextSection = document.getElementById('contextSection');
+            cgpaSlider.addEventListener("input", (e) => {
+                const val = parseFloat(e.target.value).toFixed(1);
+                cgpaVal.textContent = val;
+                localState.cgpa = parseFloat(val);
+            });
 
-            // Trigger loading animation states
-            submitBtn.disabled = true;
-            submitBtn.style.opacity = '0.7';
-            loader.style.display = 'flex';
-            results.style.display = 'none';
-            oppSection.style.display = 'none';
-            contextSection.style.display = 'flex';
-            docsGrid.innerHTML = '';
-            oppGrid.innerHTML = '';
+            backlogsNum.addEventListener("change", (e) => {
+                localState.backlogs = parseInt(e.target.value) || 0;
+            });
 
-            try {
-                const requestBody = {
-                    query: queryText
-                };
+            projectsNum.addEventListener("change", (e) => {
+                localState.projects_count = parseInt(e.target.value) || 0;
+            });
+        }
 
-                if (profilePayload) {
-                    requestBody.student_profile = profilePayload;
+        // Render Tag Toggles dynamically from local state arrays
+        function renderPredefinedChips() {
+            renderChipCategory("skillsChips", PREDEFINED_SKILLS, localState.skills);
+            renderChipCategory("weaknessesChips", PREDEFINED_WEAKNESSES, localState.weaknesses);
+            renderChipCategory("interestsChips", PREDEFINED_INTERESTS, localState.interests);
+        }
+
+        function renderChipCategory(containerId, predefinedList, activeList) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = "";
+            
+            // Merge actual user chips if they are custom
+            const allTags = Array.from(new Set([...predefinedList, ...activeList]));
+            
+            allTags.forEach(tag => {
+                const chip = document.createElement("div");
+                chip.className = "chip";
+                if (activeList.includes(tag)) {
+                    chip.classList.add("active");
                 }
-
-                // Call FastAPI backend endpoint
-                const response = await fetch('/api/query', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
+                chip.textContent = tag;
+                
+                chip.addEventListener("click", () => {
+                    toggleTagState(activeList, tag, chip);
                 });
+                container.appendChild(chip);
+            });
+        }
 
-                if (!response.ok) {
-                    throw new Error('API server returned an error');
-                }
-
-                const data = await response.json();
-
-                // Inject response answer
-                responseHeader.textContent = data.is_strategy_query ? 'Placement Advisor Report' : 'Generated Answer';
-                answerText.innerHTML = formatMarkdown(data.response || 'No response generated.');
-
-                // Render eligible opportunities if strategy query
-                if (data.is_strategy_query && data.opportunities && data.opportunities.length > 0) {
-                    data.opportunities.forEach(opp => {
-                        const card = document.createElement('div');
-                        card.className = 'opportunity-card';
-
-                        let barColor = 'linear-gradient(90deg, #ef4444, #f87171)';
-                        if (opp.readiness_score >= 75) {
-                            barColor = 'linear-gradient(90deg, #10b981, #34d399)';
-                        } else if (opp.readiness_score >= 50) {
-                            barColor = 'linear-gradient(90deg, #f59e0b, #fbbf24)';
-                        }
-
-                        let readinessHtml = '';
-                        if (opp.readiness_score !== undefined && opp.readiness_score !== null) {
-                            readinessHtml = `
-                                <div class="readiness-container" style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;">
-                                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600;">
-                                        <span style="color: var(--text-secondary);">Readiness Match</span>
-                                        <span style="color: var(--text-primary);">${opp.readiness_score.toFixed(1)}%</span>
-                                    </div>
-                                    <div class="progress-bar-bg" style="width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden;">
-                                        <div class="progress-bar-fill" style="width: ${opp.readiness_score}%; height: 100%; background: ${barColor}; border-radius: 3px;"></div>
-                                    </div>
-                                </div>
-                            `;
-                        }
-
-                        card.innerHTML = `
-                            <div class="opp-header">
-                                <span class="opp-company">${opp.company}</span>
-                                <span class="opp-pkg">${opp.package} LPA</span>
-                            </div>
-                            <div class="opp-details">
-                                <div><strong>CGPA Cutoff:</strong> ${opp.min_cgpa}</div>
-                                <div><strong>Max Backlogs:</strong> ${opp.max_backlogs}</div>
-                                <div><strong>Bond Period:</strong> ${opp.bond > 0 ? opp.bond + ' Yrs' : 'None'}</div>
-                                <div><strong>Skill Score:</strong> ${opp.skill_score.toFixed(1)}</div>
-                            </div>
-                            ${readinessHtml}
-                            <div class="opp-tech" style="margin-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                                <strong>Focus:</strong> ${opp.tech_focus}
-                            </div>
-                            ${opp.calibration_reason ? `<div class="opp-reason" style="font-size: 0.75rem; color: #888; font-style: italic; margin-top: 0.4rem; line-height: 1.3;">"${opp.calibration_reason}"</div>` : ''}
-                        `;
-                        oppGrid.appendChild(card);
-                    });
-                    oppSection.style.display = 'flex';
-                    contextSection.style.display = 'none'; // Hide raw documents in strategy mode for simplicity
-                } else if (data.documents && data.documents.length > 0) {
-                    data.documents.forEach(doc => {
-                        const card = document.createElement('div');
-                        card.className = 'doc-card';
-                        
-                        const badge = document.createElement('span');
-                        badge.className = 'doc-badge';
-                        badge.textContent = doc.section || 'General';
-
-                        const content = document.createElement('p');
-                        content.textContent = doc.text;
-
-                        card.appendChild(badge);
-                        card.appendChild(content);
-                        docsGrid.appendChild(card);
-                    });
-                } else {
-                    docsGrid.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No context documents were retrieved.</p>';
-                }
-
-                // Show completed results container
-                results.style.display = 'flex';
-
-            } catch (err) {
-                console.error(err);
-                answerText.innerHTML = `<span style="color: #ef4444; font-weight: 500;">Failed to fetch answer. Please make sure the backend server is running and API keys are set.</span>`;
-                results.style.display = 'flex';
-            } finally {
-                // Disable loading animation states
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1.0';
-                loader.style.display = 'none';
+        function toggleTagState(arrayRef, item, element) {
+            const idx = arrayRef.indexOf(item);
+            if (idx > -1) {
+                arrayRef.splice(idx, 1);
+                element.classList.remove("active");
+            } else {
+                arrayRef.push(item);
+                element.classList.add("active");
             }
         }
 
-        // Q&A form submit
-        document.getElementById('qaForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const queryInput = document.getElementById('queryInput');
-            const query = queryInput.value.trim();
-            if (!query) return;
-            await handleQuerySubmission(query);
-        });
+        function setupCustomTagAdders() {
+            setupCustomAdder("newSkillInput", "addSkillBtn", PREDEFINED_SKILLS, localState.skills, "skillsChips");
+            setupCustomAdder("newWeaknessInput", "addWeaknessBtn", PREDEFINED_WEAKNESSES, localState.weaknesses, "weaknessesChips");
+            setupCustomAdder("newInterestInput", "addInterestBtn", PREDEFINED_INTERESTS, localState.interests, "interestsChips");
+        }
 
-        // Strategy form submit
-        document.getElementById('strategyForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const cgpaVal = parseFloat(document.getElementById('cgpaInput').value);
-            const backlogsVal = parseInt(document.getElementById('backlogsInput').value);
-            
-            const skillsVal = document.getElementById('skillsInput').value.split(',').map(s => s.trim()).filter(s => s);
-            const weaknessesVal = document.getElementById('weaknessesInput').value.split(',').map(s => s.trim()).filter(s => s);
-            const interestsVal = document.getElementById('interestsInput').value.split(',').map(s => s.trim()).filter(s => s);
-            const projectsVal = parseInt(document.getElementById('projectsInput').value);
+        function setupCustomAdder(inputId, buttonId, predefinedList, activeList, containerId) {
+            const input = document.getElementById(inputId);
+            const btn = document.getElementById(buttonId);
 
-            const profilePayload = {
-                cgpa: cgpaVal,
-                skills: skillsVal,
-                weaknesses: weaknessesVal,
-                interests: interestsVal,
-                backlogs: backlogsVal,
-                projects_count: projectsVal
+            const addNewTag = () => {
+                const text = input.value.trim();
+                if (text && !activeList.includes(text)) {
+                    activeList.push(text);
+                    renderChipCategory(containerId, predefinedList, activeList);
+                    input.value = "";
+                }
             };
 
-            const queryText = `Analyze strategy advisor recommendation for student profile (CGPA: ${cgpaVal}, Skills: ${skillsVal.join(', ')}, Backlogs: ${backlogsVal})`;
-            
-            await handleQuerySubmission(queryText, profilePayload);
-        });
+            btn.addEventListener("click", addNewTag);
+            input.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    addNewTag();
+                }
+            });
+        }
 
-        // Basic helper function to parse basic markdown styles
-        function formatMarkdown(text) {
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\* (.*?)/g, '• $1')
-                .replace(/- (.*?)/g, '• $1');
+        // Page load initial data pull
+        async function initializeHistory() {
+            try {
+                const res = await fetch("/api/history");
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.history_logs && data.history_logs.length > 0) {
+                        // Populate state with latest profile from logs
+                        const latestEntry = data.history_logs[data.history_logs.length - 1];
+                        if (latestEntry.profile) {
+                            localState.cgpa = latestEntry.profile.cgpa || 7.5;
+                            localState.backlogs = latestEntry.profile.backlogs || 0;
+                            localState.projects_count = latestEntry.profile.projects_count || 1;
+                            localState.skills = latestEntry.profile.skills || [];
+                            localState.weaknesses = latestEntry.profile.weaknesses || [];
+                            localState.interests = latestEntry.profile.interests || [];
+                            
+                            // Update slider and indicators
+                            document.getElementById("cgpaSlider").value = localState.cgpa;
+                            document.getElementById("cgpaVal").textContent = localState.cgpa.toFixed(1);
+                            document.getElementById("backlogsNum").value = localState.backlogs;
+                            document.getElementById("projectsNum").value = localState.projects_count;
+                            
+                            renderPredefinedChips();
+                        }
+                        
+                        // Initial chart draw
+                        drawTrendChart(data.history_logs);
+                    } else {
+                        // Empty history default initialization
+                        drawTrendChart([]);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load placement history: ", err);
+                drawTrendChart([]);
+            }
+        }
+
+        // Core Query Dispatcher
+        async function runAssessmentQuery(queryText, isStrategyAssessment = false) {
+            const chatMessages = document.getElementById("chatMessages");
+            const loadingId = "loading-" + Date.now();
+            
+            // Render user request bubble if it's a custom chat question
+            if (!isStrategyAssessment) {
+                appendChatBubble("user", queryText);
+            }
+            
+            // Append assistant loading placeholder
+            const loadingBubble = document.createElement("div");
+            loadingBubble.className = "message assistant";
+            loadingBubble.id = loadingId;
+            loadingBubble.innerHTML = `
+                <span class="message-sender">Advisor</span>
+                <div class="message-bubble">
+                    <div class="loading-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(loadingBubble);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                const response = await fetch("/api/query", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        query: queryText,
+                        student_profile: localState
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error("RAG Server responded with an error status.");
+                }
+
+                const data = await response.json();
+                
+                // Remove loading bubble
+                const bubbleToRemove = document.getElementById(loadingId);
+                if (bubbleToRemove) bubbleToRemove.remove();
+
+                // Append actual Markdown answer
+                appendChatBubble("assistant", data.response);
+                
+                // Update Opportunity progress list on the right column
+                updateOpportunitiesUI(data.opportunities, data.is_simulation);
+                
+                // Re-render chart trend logs
+                if (data.history_logs) {
+                    drawTrendChart(data.history_logs);
+                }
+                
+                // Sync sliders/chips if profile got updated via a simulation query
+                if (data.is_simulation && data.student_profile) {
+                    syncUIWithSimulatedState(data.student_profile);
+                }
+
+            } catch (error) {
+                console.error(error);
+                const bubbleToRemove = document.getElementById(loadingId);
+                if (bubbleToRemove) bubbleToRemove.remove();
+                
+                appendChatBubble("assistant", `<span style="color:var(--danger)">Connection failed. Ensure the server is online and valid DeepSeek API keys are loaded.</span>`);
+            }
+        }
+
+        // Form Assessment button trigger
+        function triggerFormAssessment() {
+            const query = `Analyze strategy advisor recommendation for student profile (CGPA: ${localState.cgpa}, Skills: ${localState.skills.join(', ')}, Backlogs: ${localState.backlogs})`;
+            runAssessmentQuery(query, true);
+        }
+
+        // Chat Message Submission
+        function handleChatSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById("chatInput");
+            const val = input.value.trim();
+            if (!val) return;
+            
+            runAssessmentQuery(val, false);
+            input.value = "";
+        }
+
+        // Appends a Chat Bubble to Console Area
+        function appendChatBubble(role, content) {
+            const chatMessages = document.getElementById("chatMessages");
+            const msg = document.createElement("div");
+            msg.className = `message ${role}`;
+            
+            const sender = role === "user" ? "You" : "Advisor";
+            const renderedContent = role === "user" ? content : marked.parse(content);
+            
+            msg.innerHTML = `
+                <span class="message-sender">${sender}</span>
+                <div class="message-bubble">${renderedContent}</div>
+            `;
+            chatMessages.appendChild(msg);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Update eligibility opportunities progress list
+        function updateOpportunitiesUI(opportunities, isSimulation) {
+            const oppList = document.getElementById("oppList");
+            oppList.innerHTML = "";
+
+            if (!opportunities || opportunities.length === 0) {
+                oppList.innerHTML = `
+                    <p style="color: var(--text-muted); font-size: 0.8rem; font-style: italic; padding: 0.5rem 0;">
+                        No opportunities found matching CGPA and backlogs cutoff filters.
+                    </p>
+                `;
+                return;
+            }
+
+            opportunities.forEach(opp => {
+                const card = document.createElement("div");
+                card.className = "opp-item-card";
+                
+                // Color scaling based on score
+                let barColor = 'linear-gradient(90deg, #ef4444, #f87171)';
+                if (opp.readiness_score >= 70) {
+                    barColor = 'linear-gradient(90deg, #10b981, #34d399)';
+                } else if (opp.readiness_score >= 45) {
+                    barColor = 'linear-gradient(90deg, #f59e0b, #fbbf24)';
+                }
+
+                // Render delta indicator if simulation
+                let deltaHtml = "";
+                if (isSimulation && opp.readiness_increase !== undefined && opp.readiness_increase !== 0) {
+                    const sign = opp.readiness_increase > 0 ? "+" : "";
+                    const color = opp.readiness_increase > 0 ? "var(--success)" : "var(--danger)";
+                    deltaHtml = `<span class="opp-item-delta" style="color: ${color}">(${sign}${opp.readiness_increase.toFixed(1)}%)</span>`;
+                }
+
+                card.innerHTML = `
+                    <div class="opp-item-header">
+                        <span class="opp-item-name">${opp.company}</span>
+                        <span class="opp-item-pkg">${opp.package.toFixed(1)} LPA</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size:0.7rem; color:var(--text-secondary);">Cutoff CGPA: ${opp.min_cgpa.toFixed(1)}</span>
+                        <div class="opp-item-readiness">
+                            <span>${opp.readiness_score.toFixed(1)}%</span>
+                            ${deltaHtml}
+                        </div>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" style="width: ${opp.readiness_score}%; background: ${barColor};"></div>
+                    </div>
+                    ${opp.calibration_reason && opp.calibration_reason !== "LLM calibration bypassed." ? `<p class="opp-item-reason">"${opp.calibration_reason}"</p>` : ''}
+                `;
+                oppList.appendChild(card);
+            });
+        }
+
+        // Draw Historical Trend Line Chart using ChartJS
+        function drawTrendChart(historyLogs) {
+            const ctx = document.getElementById("trendChart").getContext("2d");
+            
+            if (historyLogs.length === 0) {
+                // Render placeholder empty chart configuration
+                if (trendChart) trendChart.destroy();
+                trendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: ['No History'], datasets: [] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { min: 0, max: 100 } }
+                    }
+                });
+                return;
+            }
+
+            // Extract all companies present in logs
+            const companies = new Set();
+            historyLogs.forEach(entry => {
+                if (entry.scores) {
+                    Object.keys(entry.scores).forEach(c => companies.add(c));
+                }
+            });
+            const companyList = Array.from(companies);
+            
+            // X labels: Run 1, Run 2...
+            const labels = historyLogs.map((_, idx) => `Run ${idx + 1}`);
+
+            // Construct dataset for each company
+            const datasets = companyList.map((company, cIdx) => {
+                const data = historyLogs.map(entry => entry.scores[company] !== undefined ? entry.scores[company] : null);
+                
+                const colors = [
+                    '#ffffff', // White
+                    '#10b981', // Emerald
+                    '#3b82f6', // Blue
+                    '#f59e0b', // Amber
+                    '#ec4899', // Pink
+                    '#8b5cf6', // Violet
+                    '#06b6d4'  // Cyan
+                ];
+                const color = colors[cIdx % colors.length];
+
+                return {
+                    label: company,
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: color + '15',
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    spanGaps: true
+                };
+            });
+
+            if (trendChart) {
+                trendChart.destroy();
+            }
+
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                color: '#64748b',
+                                boxWidth: 6,
+                                boxHeight: 6,
+                                usePointStyle: true,
+                                padding: 8,
+                                font: { size: 9, family: 'Outfit' }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            bodyFont: { family: 'Outfit' },
+                            titleFont: { family: 'Outfit' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.03)', drawBorder: false },
+                            ticks: { color: '#64748b', font: { size: 9, family: 'Outfit' } }
+                        },
+                        y: {
+                            min: 0,
+                            max: 100,
+                            grid: { color: 'rgba(255, 255, 255, 0.03)', drawBorder: false },
+                            ticks: { color: '#64748b', font: { size: 9, family: 'Outfit' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Updates client state and input sliders based on simulation changes
+        function syncUIWithSimulatedState(profile) {
+            localState.cgpa = profile.cgpa || localState.cgpa;
+            localState.backlogs = profile.backlogs !== undefined ? profile.backlogs : localState.backlogs;
+            localState.projects_count = profile.projects_count !== undefined ? profile.projects_count : localState.projects_count;
+            localState.skills = profile.skills || localState.skills;
+            localState.weaknesses = profile.weaknesses || localState.weaknesses;
+            localState.interests = profile.interests || localState.interests;
+
+            // Update UI elements
+            document.getElementById("cgpaSlider").value = localState.cgpa;
+            document.getElementById("cgpaVal").textContent = localState.cgpa.toFixed(1);
+            document.getElementById("backlogsNum").value = localState.backlogs;
+            document.getElementById("projectsNum").value = localState.projects_count;
+
+            renderPredefinedChips();
+        }
+
+        // Trigger History Deletion
+        async function triggerClearHistory() {
+            if (!confirm("Are you sure you want to clear all your historical progress logs? This will reset the trend line chart.")) {
+                return;
+            }
+            try {
+                const res = await fetch("/api/clear_history", { method: "POST" });
+                if (res.ok) {
+                    drawTrendChart([]);
+                    document.getElementById("oppList").innerHTML = `
+                        <p style="color: var(--text-muted); font-size: 0.8rem; font-style: italic; padding: 0.5rem 0;">
+                            No placement run assessed yet.
+                        </p>
+                    `;
+                    appendChatBubble("assistant", "Placement history and logs have been reset successfully.");
+                }
+            } catch (err) {
+                console.error("Failed to reset history: ", err);
+            }
         }
     </script>
 </body>
 </html>
-
