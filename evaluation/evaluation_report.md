@@ -1,9 +1,9 @@
 # RAG Evaluation Suite Scorecard
 
-**Date**: 2026-06-23 23:26:41
+**Date**: 2026-06-24 14:50:19
 **Total Queries Evaluated**: 30
-**Routing Accuracy**: 30/30 (100.0%)
-**Assertion Success Rate**: 29/30 (96.7%)
+**Routing Accuracy**: 29/30 (96.7%)
+**Assertion Success Rate**: 28/30 (93.3%)
 
 ## Detailed Results Table
 
@@ -13,7 +13,7 @@
 | **E2** | How many backlogs does Deloitte allow? | `profile_builder -> router -> eligibility -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **E3** | What is the bond period for Amazon? | `profile_builder -> router -> eligibility -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **E4** | Which technology does Flipkart focus on in interviews? | `profile_builder -> router -> interview -> hiring -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
-| **E5** | What is the package offered by Google? | `profile_builder -> router -> eligibility -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
+| **E5** | What is the package offered by Google? | `profile_builder -> router -> statistics -> synthesis` | FAIL | FAIL | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **E6** | Does Microsoft allow backlogs? | `profile_builder -> router -> eligibility -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **E7** | What rounds does TCS conduct? | `profile_builder -> router -> interview -> hiring -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **E8** | Which programming language is tested at Amazon? | `profile_builder -> router -> interview -> hiring -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
@@ -68,13 +68,7 @@ Here is the retrieved context related to your query 'How many backlogs does Delo
 
 ### E3: What is the bond period for Amazon?
 **Answer**:
-**[Offline Fallback Answer]**
-Here is the retrieved context related to your query 'What is the bond period for Amazon?':
-
-- [SECTION_1:_COMPANY_ELIGIBILITY_PROFILES] Company: Amazon, Min CGPA: 6.4, Max Backlogs: 1, Package (LPA): 28.6, Bond (Yrs): 2, Key Topics: DSA, C++, LLD, Tech Focus: C++. Section: section_1:_company_eligibility_profiles.
-- [SECTION_1:_COMPANY_ELIGIBILITY_PROFILES] Python Eligibility Filter Results:
-1. Company: Amazon, Cutoff CGPA: 6.4, Allowed Backlogs: 1, Package: 28.6 LPA, Bond: 2 Yrs
-
+The bond period for Amazon is 2 years.
 
 ---
 
@@ -136,13 +130,7 @@ Hiring numbers for all roles:
 
 ### E5: What is the package offered by Google?
 **Answer**:
-**[Offline Fallback Answer]**
-Here is the retrieved context related to your query 'What is the package offered by Google?':
-
-- [SECTION_1:_COMPANY_ELIGIBILITY_PROFILES] Company: Google, Min CGPA: 7.4, Max Backlogs: 0, Package (LPA): 42.0, Bond (Yrs): 1, Key Topics: DSA, Algorithms, Tech Focus: Python. Section: section_1:_company_eligibility_profiles.
-- [SECTION_1:_COMPANY_ELIGIBILITY_PROFILES] Python Eligibility Filter Results:
-1. Company: Google, Cutoff CGPA: 7.4, Allowed Backlogs: 0, Package: 42.0 LPA, Bond: 1 Yrs
-
+The average package offered by Google is 25.7.
 
 ---
 

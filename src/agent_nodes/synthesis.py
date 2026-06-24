@@ -30,7 +30,9 @@ def _generate_strategy_response(state: Dict[str, Any]) -> Dict[str, Any]:
     opps_str = ""
     if opps:
         for idx, o in enumerate(opps):
-            opps_str += f"{idx+1}. Company: {o['company']}, Package: {o['package']} LPA, Cutoff CGPA: {o['min_cgpa']}, Max Backlogs: {o['max_backlogs']}, Tech Focus: {o['tech_focus']}, Bond: {o['bond']} Yrs (Skill Overlap Score: {o['skill_score']})\n"
+            readiness = o.get("readiness_score")
+            readiness_str = f", Readiness Score: {readiness}%" if readiness is not None else ""
+            opps_str += f"{idx+1}. Company: {o['company']}, Package: {o['package']} LPA, Cutoff CGPA: {o['min_cgpa']}, Max Backlogs: {o['max_backlogs']}, Tech Focus: {o['tech_focus']}, Bond: {o['bond']} Yrs (Skill Overlap Score: {o['skill_score']}{readiness_str})\n"
     else:
         opps_str = "No eligible companies found matching the CGPA and backlog criteria.\n"
 
@@ -41,8 +43,8 @@ def _generate_strategy_response(state: Dict[str, Any]) -> Dict[str, Any]:
         "Eligible Companies List:\n"
         f"{opps_str}\n\n"
         "Instructions:\n"
-        "1. Present the matching companies in a clear, formatted markdown report, sorted by skill overlap score descending (and package LPA descending as a tie-breaker).\n"
-        "2. For each company, summarize the cutoff CGPA, backlog allowance, tech focus/topics to prepare, and bond details.\n"
+        "1. Present the matching companies in a clear, formatted markdown report, sorted by readiness score descending (or skill overlap score if readiness is not available) and package LPA descending as a tie-breaker.\n"
+        "2. For each company, summarize the cutoff CGPA, backlog allowance, tech focus/topics to prepare, bond details, and prominently display the Readiness Score (if available).\n"
         "3. If no eligible companies are found, state that clearly and advise the student on what CGPA/backlogs to target.\n"
         "4. Provide a supportive, brief summary concluding the response."
     )

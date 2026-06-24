@@ -8,6 +8,7 @@ from src.agent_nodes.validation import validation_node
 from src.agent_nodes.synthesis import synthesis_node
 from src.agent_nodes.profile_builder import profile_builder_node
 from src.agent_nodes.opportunity_detector import opportunity_detector_node
+from src.agent_nodes.probability_estimator import probability_estimator_node
 
 from src.agent_nodes.eligibility import eligibility_node
 from src.agent_nodes.interview import interview_prep_node
@@ -94,6 +95,7 @@ def build_placement_graph():
     # Register all nodes
     workflow.add_node("profile_builder", profile_builder_node)
     workflow.add_node("opportunity", opportunity_detector_node)
+    workflow.add_node("probability_estimator", probability_estimator_node)
     workflow.add_node("router", router_node)
     workflow.add_node("eligibility", eligibility_node)
     workflow.add_node("interview", interview_prep_node)
@@ -128,7 +130,8 @@ def build_placement_graph():
         }
     )
 
-    workflow.add_edge("opportunity", "synthesis")
+    workflow.add_edge("opportunity", "probability_estimator")
+    workflow.add_edge("probability_estimator", "synthesis")
     
     # Retrieval node standard edges
     workflow.add_edge("eligibility", "validation")

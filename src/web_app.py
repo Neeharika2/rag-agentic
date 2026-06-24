@@ -41,6 +41,8 @@ class CompanyOpportunity(BaseModel):
     tech_focus: str
     bond: int
     skill_score: float
+    readiness_score: Optional[float] = None
+    calibration_reason: Optional[str] = None
 
 class QueryResponse(BaseModel):
     response: str
