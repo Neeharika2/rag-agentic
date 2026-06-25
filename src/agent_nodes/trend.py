@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any
 from langchain_core.documents import Document
-from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store
+from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_cached
 from .multihop_engine import MultiHopEngine
 
 def trend_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -25,7 +25,7 @@ def trend_node(state: Dict[str, Any]) -> Dict[str, Any]:
     
     store = get_chroma_store()
     
-    results = store.collection.get(where={"section": "n_rag_challenge_-_temporal_reasoning"})
+    results = get_section_cached(store, "n_rag_challenge_-_temporal_reasoning")
     docs = results["documents"]
     metas = results["metadatas"]
     

@@ -5,6 +5,7 @@ from .company_utils import (
     normalize_company_name,
     get_canonical_companies,
     get_chroma_store,
+    get_section_cached,
     parse_cgpa_from_text,
     parse_backlogs_from_text,
     check_academic_eligibility
@@ -42,7 +43,7 @@ def eligibility_node(state: Dict[str, Any]) -> Dict[str, Any]:
     store = get_chroma_store()
     
     # Retrieve all eligibility profiles (only ~19-21 companies)
-    results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+    results = get_section_cached(store, "section_1:_company_eligibility_profiles")
     docs = results["documents"]
     metas = results["metadatas"]
     

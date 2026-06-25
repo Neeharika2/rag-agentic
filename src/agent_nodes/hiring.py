@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any
 from langchain_core.documents import Document
-from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store
+from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_cached
 from .multihop_engine import MultiHopEngine
 
 def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -26,7 +26,7 @@ def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     store = get_chroma_store()
     
     # 3. Retrieve and parse hiring data to dynamically extract available roles
-    hiring_results = store.collection.get(where={"section": "hiring_distribution_data_table_(text_representation_of_all_charts_above)"})
+    hiring_results = get_section_cached(store, "hiring_distribution_data_table_(text_representation_of_all_charts_above)")
     docs = hiring_results["documents"]
     metas = hiring_results["metadatas"]
  
@@ -55,7 +55,7 @@ def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # 2. Check if join query (e.g. tech-focused company join query)
     # Collect candidate tech focus terms dynamically from the metadata
     tech_candidates = set()
-    elig_results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+    elig_results = get_section_cached(store, "section_1:_company_eligibility_profiles")
     for meta in elig_results.get("metadatas", []):
         for field in ["tech_focus", "key_topics"]:
             val = meta.get(field)

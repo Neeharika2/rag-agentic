@@ -9,9 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Include Chart.js and marked.js from CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Include Chart.js and marked.js from CDN with cross-origin security -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js" crossorigin="anonymous"></script>
     
     <style>
         /* CSS Variables for Premium Dark/Monochrome Theme */
@@ -1060,6 +1060,7 @@
         // Form Assessment button trigger
         function triggerFormAssessment() {
             const query = `Analyze strategy advisor recommendation for student profile (CGPA: ${localState.cgpa}, Skills: ${localState.skills.join(', ')}, Backlogs: ${localState.backlogs})`;
+            appendChatBubble("user", query);
             runAssessmentQuery(query, true);
         }
 

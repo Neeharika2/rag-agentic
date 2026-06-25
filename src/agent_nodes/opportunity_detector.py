@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any, List
 from langchain_core.documents import Document
-from .company_utils import get_chroma_store, normalize_company_name, check_academic_eligibility
+from .company_utils import get_chroma_store, get_section_cached, normalize_company_name, check_academic_eligibility
 
 def opportunity_detector_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -21,7 +21,7 @@ def opportunity_detector_node(state: Dict[str, Any]) -> Dict[str, Any]:
     
     # Retrieve all eligibility profiles from database
     try:
-        results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+        results = get_section_cached(store, "section_1:_company_eligibility_profiles")
         docs = results.get("documents", [])
         metas = results.get("metadatas", [])
     except Exception as e:

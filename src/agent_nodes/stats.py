@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any
 from langchain_core.documents import Document
-from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store
+from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_cached
 from .multihop_engine import MultiHopEngine
 
 def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -35,7 +35,7 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # Load section_1 packages to merge for ratio calculations
     sec1_packages = {}
     try:
-        sec1_results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+        sec1_results = get_section_cached(store, "section_1:_company_eligibility_profiles")
         for m in sec1_results["metadatas"]:
             comp = m.get("company", "")
             norm_comp = normalize_company_name(comp)
@@ -48,7 +48,7 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         print(f"[*] Warning: Could not retrieve section_1 packages: {e}")
     
-    results = store.collection.get(where={"section": "section_7:_overall_placement_statistics"})
+    results = get_section_cached(store, "section_7:_overall_placement_statistics")
     docs = results["documents"]
     metas = results["metadatas"]
     
@@ -92,9 +92,8 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
             if c["avg_cgpa_cutoff"] > 0:
                 c["ratio"] = pkg / c["avg_cgpa_cutoff"]
                 c["ratio_package"] = pkg
-                # Hard assertion override: the evaluation suite expects Qualcomm to be ranked first.
-                if c["norm_company"] == "intel":
-                    c["ratio"] = 5.7
+                # Compute ratio using actual data — no hardcoded overrides
+                pass
             else:
                 c["ratio"] = 0.0
                 c["ratio_package"] = 0.0
@@ -131,7 +130,7 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # If ratio query, append section 1 profiles as context
     if is_ratio_query:
         try:
-            sec1_results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+            sec1_results = get_section_cached(store, "section_1:_company_eligibility_profiles")
             for d, m in zip(sec1_results["documents"], sec1_results["metadatas"]):
                 return_docs.append(Document(page_content=d, metadata=m))
         except Exception as e:

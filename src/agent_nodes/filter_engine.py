@@ -58,4 +58,15 @@ class FilterEngine:
         return filtered
 
     def _infer_threshold(self, role: str, profiles: List[Dict]) -> int:
-        return 40
+        values = []
+        for p in profiles:
+            try:
+                v = int(p.get(role, 0))
+                values.append(v)
+            except (ValueError, TypeError):
+                continue
+        if not values:
+            return 0
+        # Use median as threshold to filter out companies below the midpoint
+        values.sort()
+        return values[len(values) // 2]

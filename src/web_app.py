@@ -31,6 +31,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
+MAX_QUERY_LENGTH = 2000
+
+
+@app.get("/api/health")
+async def health_check():
+    return {"status": "healthy", "service": "Placement Intelligence Assistant"}
+
 # Define request schema
 class StudentProfileSchema(BaseModel):
     cgpa: Optional[float] = None
@@ -113,6 +120,8 @@ async def query_endpoint(request: QueryRequest):
     query_str = request.query.strip()
     if not query_str:
         raise HTTPException(status_code=400, detail="Query string cannot be empty")
+    if len(query_str) > MAX_QUERY_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Query string exceeds maximum length of {MAX_QUERY_LENGTH} characters")
         
     start_time = time()
     logger.info(f"Incoming Request - Query: '{query_str}', Profile Provided: {request.student_profile is not None}")

@@ -9,16 +9,41 @@ base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_dir)
 
 from src.rag_pipeline import build_placement_graph
-from langchain_google_genai import ChatGoogleGenerativeAI
-from pydantic import BaseModel, Field
-
-# Define LLM Judge Output Schema
-class JudgeResult(BaseModel):
-    score: int = Field(description="Factual accuracy score from 1 to 5.")
-    reason: str = Field(description="Short one-sentence explanation of the score.")
 
 def get_gemini_judge(query: str, generated_answer: str, ground_truth: str) -> dict:
-    return {"score": 5, "reason": "Bypassed LLM judge to prevent quota exhaustion and speed up evaluation."}
+    if not generated_answer:
+        return {"score": 1, "reason": "No answer generated."}
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        from pydantic import BaseModel, Field
+
+        class JudgeResult(BaseModel):
+            score: int = Field(description="Factual accuracy score from 1 to 5.")
+            reason: str = Field(description="Short one-sentence explanation of the score.")
+
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, max_retries=1)
+        structured_judge = llm.with_structured_output(JudgeResult)
+
+        prompt = (
+            "You are an expert LLM judge evaluating a Placement RAG assistant.\n\n"
+            f"User Query: {query}\n"
+            f"Generated Answer: {generated_answer}\n"
+            f"Ground Truth: {ground_truth}\n\n"
+            "Score 1-5 based on factual accuracy (5 = perfectly matches ground truth facts, "
+            "3 = partially correct with some errors/omissions, 1 = completely wrong or off-topic).\n"
+            "Provide a brief reason for the score."
+        )
+        result = structured_judge.invoke(prompt)
+        return {"score": result.score, "reason": result.reason}
+    except Exception as e:
+        print(f"[*] Warning: LLM Judge failed: {e}, defaulting to keyword-based scoring")
+        # Fallback: simple keyword overlap scoring
+        gt_lower = ground_truth.lower()
+        answer_lower = generated_answer.lower()
+        keywords = [w for w in gt_lower.split() if len(w) > 3]
+        matches = sum(1 for k in keywords if k in answer_lower)
+        score = max(1, min(5, int((matches / max(len(keywords), 1)) * 5)))
+        return {"score": score, "reason": f"Fallback keyword overlap: {matches}/{len(keywords)} keywords matched"}
 
 def run_evaluation():
     graph = build_placement_graph()
@@ -309,7 +334,6 @@ def run_evaluation():
     os.makedirs(os.path.join(base_dir, "evaluation"), exist_ok=True)
     report_paths = [
         os.path.join(base_dir, "evaluation", "evaluation_report.md"),
-        r"C:\Users\neeha\.gemini\antigravity-ide\brain\4b640ab1-0cfd-47d7-97b0-b4f9324ae298\evaluation_report.md"
     ]
     
     for report_path in report_paths:

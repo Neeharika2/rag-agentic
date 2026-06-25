@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any
 from langchain_core.documents import Document
-from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store
+from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_cached
 from .multihop_engine import MultiHopEngine
 
 def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -61,7 +61,7 @@ def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # If no specific technical_focus section was found for this company, fetch its section_1 profile
         if not has_sec:
             try:
-                sec1_results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+                sec1_results = get_section_cached(store, "section_1:_company_eligibility_profiles")
                 for d, m in zip(sec1_results["documents"], sec1_results["metadatas"]):
                     if company_clean in d.lower() or company_clean in m.get("company", "").lower():
                         matched_docs.append(Document(page_content=d, metadata=m))
@@ -88,7 +88,7 @@ def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
         
     if languages:
         try:
-            sec1_results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+            sec1_results = get_section_cached(store, "section_1:_company_eligibility_profiles")
             for d, m in zip(sec1_results["documents"], sec1_results["metadatas"]):
                 content_lower = d.lower()
                 if any(lang in content_lower for lang in languages):

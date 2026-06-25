@@ -1,6 +1,6 @@
 # RAG Evaluation Suite Scorecard
 
-**Date**: 2026-06-24 22:34:07
+**Date**: 2026-06-24 22:49:15
 **Total Queries Evaluated**: 30
 **Routing Accuracy**: 30/30 (100.0%)
 **Assertion Success Rate**: 29/30 (96.7%)
@@ -32,11 +32,11 @@
 | **H3** | For CGPA 8.0+, zero backlog students, rank companies by package. Hard | `profile_builder -> router -> eligibility -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **H4** | Which company had conflicting CGPA data across sources? | `profile_builder -> router -> eligibility -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **H5** | Is the Amazon CGPA cutoff 6.4 or 7.0? Explain. | `profile_builder -> router -> eligibility -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
-| **H6** | Which company offers the best package-to-CGPA ratio? | `profile_builder -> router -> statistics -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
+| **H6** | Which company offers the best package-to-CGPA ratio? | `profile_builder -> router -> statistics -> synthesis` | PASS | FAIL | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **H7** | Compare Google and Amazon on all dimensions: eligibility, package, hiring, trend. Hard Full synthesis | `profile_builder -> router -> eligibility -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **X1** | What is TCS's campus visit date at SVECW? | `profile_builder -> router -> websearch -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **X2** | Should I join Google or Microsoft? Which is better for my career? | `profile_builder -> router -> websearch -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
-| **X3** | I have CGPA 5.0. Where can I apply? | `profile_builder -> router -> eligibility -> validation -> synthesis` | PASS | FAIL | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
+| **X3** | I have CGPA 5.0. Where can I apply? | `profile_builder -> router -> eligibility -> validation -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **X4** | What is Infosys's current stock price? | `profile_builder -> router -> websearch -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 | **X5** | Which company in this dataset pays the highest in the world? | `profile_builder -> router -> websearch -> synthesis` | PASS | PASS | **5/5** | Bypassed LLM judge to prevent quota exhaustion and speed up evaluation. |
 
@@ -44,13 +44,13 @@
 
 ### E1: What is the CGPA requirement for TCS?
 **Answer**:
-The CGPA requirement for TCS is **7.5**, with a maximum of **0 backlogs** allowed.
+The CGPA requirement for TCS is **7.5**. Additionally, the maximum allowed backlogs is **0**.
 
 ---
 
 ### E2: How many backlogs does Deloitte allow?
 **Answer**:
-Deloitte allows a maximum of 1 backlog.
+Deloitte allows a maximum of **1 backlog**.
 
 ---
 
@@ -62,13 +62,13 @@ The bond period for Amazon is 2 years.
 
 ### E4: Which technology does Flipkart focus on in interviews?
 **Answer**:
-Flipkart focuses on **Python** in interviews, as indicated by the "Tech Focus: Python" in its eligibility profile.
+Flipkart's tech focus in interviews is **Python**, as stated in the context.
 
 ---
 
 ### E5: What is the package offered by Google?
 **Answer**:
-The package offered by Google is **42.0 LPA**.
+The package offered by Google is 42.0 LPA.
 
 ---
 

@@ -1,35 +1,15 @@
 import os
 import re
 from typing import List
-from pathlib import Path
 from src.vectorstore.chroma_store import ChromaStore
 
 _CANONICAL_COMPANIES_CACHE = None
 _ALIAS_RESOLVER_CACHE = {}
+_SECTION_CACHE: dict = {}
+_SECTION_CACHE_ENABLED = True
 
-def _load_env_file():
-    try:
-        from dotenv import load_dotenv
-        load_dotenv()
-        return
-    except ImportError:
-        pass
-        
-    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
-    if env_path.exists():
-        with open(env_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" in line:
-                    key, val = line.split("=", 1)
-                    key = key.strip()
-                    val = val.strip()
-                    if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
-                        val = val[1:-1]
-                    os.environ[key] = val
-
+# Load env vars — uses centralized loader from llm_utils
+from .llm_utils import _load_env_file
 _load_env_file()
 
 def get_chroma_store() -> ChromaStore:
@@ -92,9 +72,12 @@ from typing import Optional, Dict, Any, Tuple
 from langchain_core.documents import Document
 
 def parse_cgpa_from_text(query: str) -> Optional[float]:
-    clean_query = re.sub(r"\d+(?:\.\d+)?\s*(?:lpa|lakh|lakhs|%|percent)", "", query.lower())
+    # Remove common false positives: years, package values, percentages, large numbers
+    clean_query = re.sub(r"\b\d{4}\b", "", query.lower())
+    clean_query = re.sub(r"\d+(?:\.\d+)?\s*(?:lpa|lakh|lakhs|%|percent)", "", clean_query)
+    clean_query = re.sub(r"\b\d{3,}\b", "", clean_query)
     cgpa_floats = [float(x) for x in re.findall(r"\b\d+\.\d+\b", clean_query)]
-    cgpa_ints = [float(x) for x in re.findall(r"\b[56789]\b|\b10\b", clean_query)]
+    cgpa_ints = [float(x) for x in re.findall(r"\b[6789]\b|\b10\b", clean_query)]
     all_cgpas = [c for c in (cgpa_floats + cgpa_ints) if 5.0 <= c <= 10.0]
     return all_cgpas[0] if all_cgpas else None
 
@@ -124,6 +107,22 @@ def check_academic_eligibility(
     if min_backlogs_at_least is not None and max_backlogs < min_backlogs_at_least:
         return False
     return True
+
+def get_section_cached(store: ChromaStore, section: str) -> dict:
+    """Cached wrapper around ChromaDB section queries to avoid repeated DB calls."""
+    global _SECTION_CACHE
+    if _SECTION_CACHE_ENABLED and section in _SECTION_CACHE:
+        return _SECTION_CACHE[section]
+    results = store.collection.get(where={"section": section})
+    if _SECTION_CACHE_ENABLED:
+        _SECTION_CACHE[section] = results
+    return results
+
+
+def clear_section_cache():
+    global _SECTION_CACHE
+    _SECTION_CACHE = {}
+
 
 def gather_retrieved_contexts(state: Dict[str, Any], fields: Optional[List[str]] = None) -> List[Document]:
     """Backward compatible helper returning collapsed contexts."""

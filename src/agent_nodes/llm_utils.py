@@ -62,14 +62,15 @@ def get_llm(temperature: float = 0.0):
             base_url=api_base,
             temperature=temperature,
             max_tokens=max_tokens,
-            max_retries=0
+            max_retries=3,
+            request_timeout=60
         )
     else:
         return ChatGoogleGenerativeAI(
             model="gemini-2.5-flash",
             temperature=temperature,
             max_output_tokens=max_tokens,
-            max_retries=0
+            max_retries=3
         )
 
 def get_structured_llm(schema: Type[BaseModel], temperature: float = 0.0):

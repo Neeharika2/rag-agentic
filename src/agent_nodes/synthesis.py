@@ -189,7 +189,7 @@ def _generate_normal_response(state: Dict[str, Any], all_docs: List[Document]) -
         mh_docs = [d for d in all_docs if d.metadata and "multi_hop_reasoning" in d.metadata.get("section", "")]
         if mh_docs:
             answer = mh_docs[0].page_content
-        elif any(x in query.lower() for x in ["date", "visit", "stock", "price", "world", "career", "join", "experience"]):
+        elif _is_out_of_corpus(query.lower()):
             answer = "I apologize, but this information is not available in the Placement RAG dataset."
         else:
             summary_bullets = []
@@ -214,13 +214,14 @@ def _generate_empty_fallback(query: str) -> Dict[str, Any]:
     }
 
 
+def _is_out_of_corpus(query_lower: str) -> bool:
+    ooc_keywords = ["stock price", "stock prices", "share price", "visit date", "campus visit", "world ranking", "global salary"]
+    return any(k in query_lower for k in ooc_keywords)
+
+
 def synthesis_node(state: Dict[str, Any]) -> Dict[str, Any]:
     query = state.get("user_query") or state.get("query") or ""
     query_lower = query.lower()
-
-    # Decline out-of-corpus queries early with standard message
-    if any(x in query_lower for x in ["date", "visit", "stock", "price", "world"]):
-        return _generate_empty_fallback(query)
 
     is_simulation = state.get("is_simulation", False)
     is_strategy = state.get("is_strategy_query", False)
@@ -247,14 +248,7 @@ def synthesis_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
     all_docs = list(retrieved_contexts)
 
-    if not all_docs:
-        if os.getenv("TAVILY_API_KEY"):
-            print(f"[*] Context is empty. Triggering dynamic Tavily Web Search fallback for: '{query}'")
-            all_docs = tavily_search(query)
-
-    if not all_docs:
-        query_lower = query.lower()
-        if any(x in query_lower for x in ["date", "visit", "stock", "price", "world", "career", "join", "experience"]):
-            return _generate_empty_fallback(query)
+    if not all_docs and _is_out_of_corpus(query_lower):
+        return _generate_empty_fallback(query)
 
     return _generate_normal_response(state, all_docs)

@@ -2,7 +2,7 @@ import re
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from .llm_utils import get_structured_llm
-from .company_utils import get_chroma_store, normalize_company_name
+from .company_utils import get_chroma_store, get_section_cached, normalize_company_name
 
 class CalibrationOutput(BaseModel):
     delta: int = Field(description="Structured calibration delta, must be exactly -10, 0, or 10")
@@ -65,7 +65,7 @@ def get_company_tech_focus_keywords(company_name: str, store) -> List[str]:
     keywords = set()
     try:
         norm_company = normalize_company_name(company_name)
-        results = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+        results = get_section_cached(store, "section_1:_company_eligibility_profiles")
         metas = results.get("metadatas", [])
         
         for meta in metas:

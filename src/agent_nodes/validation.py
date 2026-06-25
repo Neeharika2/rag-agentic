@@ -2,7 +2,7 @@ import os
 import re
 from typing import Dict, Any, List, Optional
 from langchain_core.documents import Document
-from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store
+from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_cached
 
 def parse_attributes_from_text(text: str) -> Dict[str, str]:
     """
@@ -172,7 +172,7 @@ def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     if q_type == "conflict" or "conflict" in (state.get("user_query") or "").lower():
         try:
             store = get_chroma_store()
-            conflict_results = store.collection.get(where={"section": "n_rag_challenge_-_conflicting_information"})
+            conflict_results = get_section_cached(store, "n_rag_challenge_-_conflicting_information")
             conflict_docs = [Document(page_content=d, metadata=m) for d, m in zip(conflict_results["documents"], conflict_results["metadatas"])]
             all_docs.extend(conflict_docs)
         except Exception as e:
@@ -185,14 +185,15 @@ def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     log_retrieved_chunks(query, all_docs)
     
     conflict_details = detect_conflicts_dynamically(all_docs, target_companies)
-    conflict_detected = conflict_details is not None and len(target_companies) > 0
+    conflict_detected = conflict_details is not None
     
-    # If we retrieved conflict docs, append them to retrieved_contexts so synthesis gets them
+    # If we retrieved conflict docs, append them alongside existing contexts
     ret_dict = {
         "conflict_detected": conflict_detected,
         "conflict_details": conflict_details
     }
     if conflict_docs:
-        ret_dict["retrieved_contexts"] = conflict_docs
+        existing = state.get("retrieved_contexts") or []
+        ret_dict["retrieved_contexts"] = existing + conflict_docs
         
     return ret_dict

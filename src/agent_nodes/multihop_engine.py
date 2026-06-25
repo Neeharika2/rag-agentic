@@ -1,7 +1,7 @@
 import re
 from typing import List, Dict, Any, Optional
 from langchain_core.documents import Document
-from .company_utils import normalize_company_name, get_chroma_store
+from .company_utils import normalize_company_name, get_chroma_store, get_section_cached
 from .query_resolver import QueryResolver
 from .filter_engine import FilterEngine
 from .result_ranker import ResultRanker
@@ -16,16 +16,16 @@ class MultiHopEngine:
     def get_unified_profiles() -> List[Dict[str, Any]]:
         store = get_chroma_store()
 
-        elig_res = store.collection.get(where={"section": "section_1:_company_eligibility_profiles"})
+        elig_res = get_section_cached(store, "section_1:_company_eligibility_profiles")
         elig_metas = elig_res.get("metadatas", [])
 
-        hiring_res = store.collection.get(where={"section": "hiring_distribution_data_table_(text_representation_of_all_charts_above)"})
+        hiring_res = get_section_cached(store, "hiring_distribution_data_table_(text_representation_of_all_charts_above)")
         hiring_metas = hiring_res.get("metadatas", [])
 
-        stats_res = store.collection.get(where={"section": "section_7:_overall_placement_statistics"})
+        stats_res = get_section_cached(store, "section_7:_overall_placement_statistics")
         stats_metas = stats_res.get("metadatas", [])
 
-        temporal_res = store.collection.get(where={"section": "n_rag_challenge_-_temporal_reasoning"})
+        temporal_res = get_section_cached(store, "n_rag_challenge_-_temporal_reasoning")
         temporal_metas = temporal_res.get("metadatas", [])
 
         results = store.collection.get(include=["metadatas"])
