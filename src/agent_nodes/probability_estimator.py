@@ -2,7 +2,7 @@ import re
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from .llm_utils import get_structured_llm
-from .company_utils import get_chroma_store, get_section_cached, normalize_company_name
+from .company_utils import get_chroma_store, get_section_all, retrieve_semantic, normalize_company_name
 
 class CalibrationOutput(BaseModel):
     delta: int = Field(description="Structured calibration delta, must be exactly -10, 0, or 10")
@@ -40,20 +40,12 @@ def is_skill_match(skill1: str, skill2: str) -> bool:
 def get_company_details(company_name: str, store) -> str:
     company_docs = []
     try:
-        results = store.collection.get(include=["metadatas"])
-        metadatas = results.get("metadatas", [])
-        all_sections = list(set([m["section"] for m in metadatas if m and "section" in m]))
-        
-        company_clean = company_name.lower().replace(";", "").replace(" r&d", "")
-        matching_sections = [
-            sec for sec in all_sections 
-            if sec.startswith("n_") and company_clean in sec.lower()
-        ]
-        
-        for sec in matching_sections:
-            sec_results = store.collection.get(where={"section": sec})
-            docs = sec_results.get("documents") or []
-            company_docs.extend(docs)
+        # Use semantic search to find company-specific round details
+        semantic_docs = retrieve_semantic(company_name, store, limit=10)
+        for doc in semantic_docs:
+            sec = doc.metadata.get("section", "")
+            if sec.startswith("n_") and company_name.lower().replace(";", "").replace(" r&d", "") in sec.lower():
+                company_docs.append(doc.page_content)
     except Exception as e:
         print(f"[*] Info: Could not retrieve detailed sections for {company_name}: {e}")
         
@@ -65,10 +57,10 @@ def get_company_tech_focus_keywords(company_name: str, store) -> List[str]:
     keywords = set()
     try:
         norm_company = normalize_company_name(company_name)
-        results = get_section_cached(store, "section_1:_company_eligibility_profiles")
-        metas = results.get("metadatas", [])
+        sec1_docs = get_section_all(store, "section_1:_company_eligibility_profiles")
         
-        for meta in metas:
+        for doc in sec1_docs:
+            meta = doc.metadata
             if meta and normalize_company_name(meta.get("company", "")) == norm_company:
                 tf = meta.get("tech_focus") or ""
                 kt = meta.get("key_topics") or ""

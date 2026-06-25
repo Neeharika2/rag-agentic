@@ -16,3 +16,6 @@ chroma_db/
 
 # Project Planning & Architecture Documents
 project_phases/
+
+# Windows artifact
+nul

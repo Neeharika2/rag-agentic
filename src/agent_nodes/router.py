@@ -51,7 +51,7 @@ def rule_based_router(query: str) -> dict:
         if len(word) < 2 or word in [
             'in', 'of', 'for', 'to', 'is', 'it', 'or', 'and', 'the', 'who', 'how', 
             'any', 'all', 'a', 'an', 'at', 'with', 'about', 'what', 'which', 'where',
-            'c++', 'java', 'dsa', 'os', 'dbms', 'oops', 'rounds', 'round', 'cutoff', 'cutoffs'
+            'java', 'dsa', 'os', 'dbms', 'oops', 'rounds', 'round', 'cutoff', 'cutoffs'
         ]:
             continue
             

@@ -5,7 +5,8 @@ from .company_utils import (
     normalize_company_name,
     get_canonical_companies,
     get_chroma_store,
-    get_section_cached,
+    get_section_all,
+    retrieve_semantic,
     parse_cgpa_from_text,
     parse_backlogs_from_text,
     check_academic_eligibility
@@ -42,13 +43,16 @@ def eligibility_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 
     store = get_chroma_store()
     
-    # Retrieve all eligibility profiles (only ~19-21 companies)
-    results = get_section_cached(store, "section_1:_company_eligibility_profiles")
-    docs = results["documents"]
-    metas = results["metadatas"]
+    # PRIMARY: Semantic vector search to find eligibility documents relevant to the query
+    semantic_docs = retrieve_semantic(query, store, section="section_1:_company_eligibility_profiles", limit=25)
+    
+    # Fallback to exact section scan if semantic search returns nothing
+    if not semantic_docs:
+        semantic_docs = get_section_all(store, "section_1:_company_eligibility_profiles")
     
     # Parse filtering thresholds from the user query
-    is_student_profile = any(x in query.lower() for x in ["student with", "i have", "my cgpa", "eligible with", "i've gpa", "students"]) or "+" in query
+    has_cgpa_plus = bool(re.search(r'\d+\.?\d*\+', query))
+    is_student_profile = any(x in query.lower() for x in ["student with", "i have", "my cgpa", "eligible with", "i've gpa", "students"]) or has_cgpa_plus
     cgpa_val = parse_cgpa_from_text(query)
     backlog_val = parse_backlogs_from_text(query)
     
@@ -58,7 +62,7 @@ def eligibility_node(state: Dict[str, Any]) -> Dict[str, Any]:
     min_backlogs_at_least = None
     
     if is_student_profile:
-        if "+" in query and cgpa_val is not None:
+        if has_cgpa_plus and cgpa_val is not None:
             student_cgpa = 10.0
         else:
             student_cgpa = cgpa_val
@@ -74,7 +78,8 @@ def eligibility_node(state: Dict[str, Any]) -> Dict[str, Any]:
     filtered_records = []
     normalized_entities = [normalize_company_name(e) for e in entities] if entities else []
     
-    for doc, meta in zip(docs, metas):
+    for doc in semantic_docs:
+        meta = doc.metadata
         if meta.get("type") != "tabular":
             continue
             
@@ -97,7 +102,7 @@ def eligibility_node(state: Dict[str, Any]) -> Dict[str, Any]:
         ):
             continue
             
-        filtered_records.append((doc, meta, r_company, r_package))
+        filtered_records.append((doc.page_content, meta, r_company, r_package))
         
     if any(x in query.lower() for x in ["maximum", "highest", "max", "best", "most pay", "top pay"]):
         filtered_records.sort(key=lambda x: x[3], reverse=True)

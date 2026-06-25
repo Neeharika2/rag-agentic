@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any
 from langchain_core.documents import Document
-from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_cached
+from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_all, retrieve_semantic
 from .multihop_engine import MultiHopEngine
 
 def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -34,50 +34,31 @@ def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
     normalized_entities = list(set([normalize_company_name(e) for e in entities]))
     
     store = get_chroma_store()
-    
-    # Fetch all section names from db
-    results = store.collection.get(include=["metadatas"])
-    metadatas = results["metadatas"]
-    all_sections = list(set([m["section"] for m in metadatas if "section" in m]))
-    
-    matched_docs = []
-    for company in normalized_entities:
-        company_clean = company.lower().replace(";", "").replace(" r&d", "")
-        # Find sections matching: n_<company>_|_technical_focus_...
-        matching_sections = [
-            sec for sec in all_sections 
-            if sec.startswith("n_") and "technical_focus" in sec and company_clean in sec.lower()
-        ]
-        
-        has_sec = False
-        for sec in matching_sections:
-            sec_results = store.collection.get(where={"section": sec})
-            docs = sec_results["documents"]
-            metas = sec_results["metadatas"]
-            for d, m in zip(docs, metas):
-                matched_docs.append(Document(page_content=d, metadata=m))
-                has_sec = True
-                
-        # If no specific technical_focus section was found for this company, fetch its section_1 profile
-        if not has_sec:
-            try:
-                sec1_results = get_section_cached(store, "section_1:_company_eligibility_profiles")
-                for d, m in zip(sec1_results["documents"], sec1_results["metadatas"]):
-                    if company_clean in d.lower() or company_clean in m.get("company", "").lower():
-                        matched_docs.append(Document(page_content=d, metadata=m))
-            except Exception as e:
-                print(f"[*] Warning: Could not retrieve fallback section_1 for {company}: {e}")
-                
-    # Fallback to similarity search if no specific sections matched
-    if not matched_docs:
-        raw_results = store.search(query, limit=10, filter_dict={"type": "tabular"})
-        for r in raw_results:
-            sec = r["metadata"].get("section", "")
-            if "technical_focus" in sec or "section_1" in sec:
-                matched_docs.append(Document(page_content=r["text"], metadata=r["metadata"]))
-                
-    # Proactively retrieve section_1 profiles matching the technical focus programming languages if requested
     query_lower = query.lower()
+    matched_docs = []
+    
+    # PRIMARY: Semantic vector search across technical_focus sections
+    semantic_docs = retrieve_semantic(query, store, limit=20)
+    for doc in semantic_docs:
+        sec = doc.metadata.get("section", "")
+        comp = doc.metadata.get("company", "").lower()
+        if "technical_focus" in sec or "section_1" in sec:
+            if not normalized_entities or any(nc in sec.lower() or nc in comp for nc in normalized_entities):
+                if not any(doc.page_content == d.page_content for d in matched_docs):
+                    matched_docs.append(doc)
+    
+    # SECONDARY: Exact section scans for companies not found via semantic search
+    if normalized_entities:
+        all_sec1 = get_section_all(store, "section_1:_company_eligibility_profiles")
+        for company in normalized_entities:
+            company_clean = company.lower().replace(";", "").replace(" r&d", "")
+            for doc in all_sec1:
+                meta = doc.metadata
+                if company_clean in doc.page_content.lower() or company_clean in meta.get("company", "").lower():
+                    if not any(doc.page_content == d.page_content for d in matched_docs):
+                        matched_docs.append(doc)
+    
+    # Proactively retrieve section_1 profiles matching the technical focus programming languages if requested
     languages = []
     if "python" in query_lower:
         languages.append("python")
@@ -87,14 +68,10 @@ def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
         languages.append("c++")
         
     if languages:
-        try:
-            sec1_results = get_section_cached(store, "section_1:_company_eligibility_profiles")
-            for d, m in zip(sec1_results["documents"], sec1_results["metadatas"]):
-                content_lower = d.lower()
-                if any(lang in content_lower for lang in languages):
-                    if not any(d == md.page_content for md in matched_docs):
-                        matched_docs.append(Document(page_content=d, metadata=m))
-        except Exception as e:
-            print(f"[*] Warning: Could not retrieve language-focused section_1 profiles: {e}")
+        sec1_docs = get_section_all(store, "section_1:_company_eligibility_profiles")
+        for doc in sec1_docs:
+            if any(lang in doc.page_content.lower() for lang in languages):
+                if not any(doc.page_content == d.page_content for d in matched_docs):
+                    matched_docs.append(doc)
         
     return {"retrieved_contexts": matched_docs}

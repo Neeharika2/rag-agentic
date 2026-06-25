@@ -2,7 +2,7 @@ import os
 import re
 from typing import Dict, Any, List, Optional
 from langchain_core.documents import Document
-from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_cached
+from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_all, retrieve_semantic
 
 def parse_attributes_from_text(text: str) -> Dict[str, str]:
     """
@@ -166,14 +166,18 @@ def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # Exclude multi-hop summary documents from conflict detection to avoid false conflicts
     all_docs = [d for d in all_docs if d.metadata and "multi_hop_reasoning" not in d.metadata.get("section", "")]
             
-    # If query type is conflict, dynamically query the conflict section from Chroma DB
+    # If query type is conflict, dynamically retrieve conflict info via semantic search
     q_type = state.get("query_type")
     conflict_docs = []
     if q_type == "conflict" or "conflict" in (state.get("user_query") or "").lower():
         try:
             store = get_chroma_store()
-            conflict_results = get_section_cached(store, "n_rag_challenge_-_conflicting_information")
-            conflict_docs = [Document(page_content=d, metadata=m) for d, m in zip(conflict_results["documents"], conflict_results["metadatas"])]
+            query = state.get("user_query") or state.get("query") or ""
+            # PRIMARY: semantic search for conflict documents
+            conflict_docs = retrieve_semantic(query, store, section="n_rag_challenge_-_conflicting_information", limit=10)
+            if not conflict_docs:
+                # Fallback: exact section scan
+                conflict_docs = get_section_all(store, "n_rag_challenge_-_conflicting_information")
             all_docs.extend(conflict_docs)
         except Exception as e:
             print(f"[*] Info: Could not retrieve conflict documents: {e}")

@@ -3,8 +3,6 @@ from pydantic import BaseModel, Field
 from typing import List
 from .llm_utils import get_structured_llm
 from langchain_core.prompts import ChatPromptTemplate
-from .company_utils import clear_section_cache
-
 class StudentProfile(BaseModel):
     cgpa: Optional[float] = Field(None, description="Student's CGPA, normalized between 0.0 and 10.0")
     skills: List[str] = Field(default_factory=list, description="Extracted tech stack, programming languages, or domain skills (e.g., Python, SQL, Web Dev)")
@@ -34,7 +32,6 @@ def profile_builder_node(state: Dict[str, Any]) -> Dict[str, Any]:
     If 'student_profile' was already supplied directly via the frontend form payload,
     it uses it directly and flags 'is_strategy_query' as True, unless it is a what-if query.
     """
-    clear_section_cache()
     query = state.get("user_query") or state.get("query") or ""
     query_lower = query.lower()
     

@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any
 from langchain_core.documents import Document
-from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_cached
+from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_all, retrieve_semantic
 from .multihop_engine import MultiHopEngine
 
 def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -35,11 +35,11 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # Load section_1 packages to merge for ratio calculations
     sec1_packages = {}
     try:
-        sec1_results = get_section_cached(store, "section_1:_company_eligibility_profiles")
-        for m in sec1_results["metadatas"]:
-            comp = m.get("company", "")
+        sec1_docs = get_section_all(store, "section_1:_company_eligibility_profiles")
+        for doc in sec1_docs:
+            comp = doc.metadata.get("company", "")
             norm_comp = normalize_company_name(comp)
-            pkg = m.get("package_(lpa)") or m.get("package")
+            pkg = doc.metadata.get("package_(lpa)") or doc.metadata.get("package")
             if pkg:
                 try:
                     sec1_packages[norm_comp] = float(pkg)
@@ -48,12 +48,14 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         print(f"[*] Warning: Could not retrieve section_1 packages: {e}")
     
-    results = get_section_cached(store, "section_7:_overall_placement_statistics")
-    docs = results["documents"]
-    metas = results["metadatas"]
+    # PRIMARY: semantic retrieval of statistics data
+    stats_docs = retrieve_semantic(query, store, section="section_7:_overall_placement_statistics", limit=30)
+    if not stats_docs:
+        stats_docs = get_section_all(store, "section_7:_overall_placement_statistics")
     
     parsed_companies = []
-    for doc, meta in zip(docs, metas):
+    for doc in stats_docs:
+        meta = doc.metadata
         if meta.get("type") != "tabular":
             continue
         comp = meta.get("company", "")
@@ -76,7 +78,7 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "min_offers": min_off,
             "bond_free": meta.get("bond-free?", ""),
             "meta": meta,
-            "text": doc
+            "text": doc.page_content
         })
         
     summary_text = "Python Overall Statistics Analysis:\n"
@@ -125,14 +127,13 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
         metadata={"section": "section_7:_overall_placement_statistics", "type": "python_summary"}
     )
     
-    return_docs = [Document(page_content=d, metadata=m) for d, m in zip(docs, metas)]
+    return_docs = list(stats_docs)
     
     # If ratio query, append section 1 profiles as context
     if is_ratio_query:
         try:
-            sec1_results = get_section_cached(store, "section_1:_company_eligibility_profiles")
-            for d, m in zip(sec1_results["documents"], sec1_results["metadatas"]):
-                return_docs.append(Document(page_content=d, metadata=m))
+            sec1_docs = get_section_all(store, "section_1:_company_eligibility_profiles")
+            return_docs.extend(sec1_docs)
         except Exception as e:
             print(f"[*] Warning: Could not retrieve section_1 profiles: {e}")
             

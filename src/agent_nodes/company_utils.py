@@ -1,6 +1,6 @@
 import os
 import re
-from typing import List
+from typing import List, Optional
 from src.vectorstore.chroma_store import ChromaStore
 
 _CANONICAL_COMPANIES_CACHE = None
@@ -68,9 +68,6 @@ def normalize_company_name(name: str) -> str:
                 
     return name
 
-from typing import Optional, Dict, Any, Tuple
-from langchain_core.documents import Document
-
 def parse_cgpa_from_text(query: str) -> Optional[float]:
     # Remove common false positives: years, package values, percentages, large numbers
     clean_query = re.sub(r"\b\d{4}\b", "", query.lower())
@@ -108,23 +105,52 @@ def check_academic_eligibility(
         return False
     return True
 
-def get_section_cached(store: ChromaStore, section: str) -> dict:
-    """Cached wrapper around ChromaDB section queries to avoid repeated DB calls."""
+def retrieve_semantic(query: str, store: ChromaStore, section: str = None, limit: int = 10) -> List[Document]:
+    """
+    PRIMARY retrieval method for the RAG pipeline.
+    Uses vector (semantic) search via ChromaDB's ANN index to find documents
+    whose meaning is closest to the query. Optionally filtered by section.
+
+    This is the 'R' in RAG — embedding-based nearest-neighbor search,
+    not exact keyword matching. Returns Document objects ready for LLM context.
+    """
+    if not query.strip():
+        return _retrieve_exact_all(store, section, limit)
+    filter_dict = {"section": section} if section else None
+    raw = store.search(query, limit=limit, filter_dict=filter_dict)
+    return [Document(page_content=r["text"], metadata=r["metadata"]) for r in raw]
+
+
+def _retrieve_exact_all(store: ChromaStore, section: str = None, limit: int = 50) -> List[Document]:
+    """Secondary fallback: exact metadata-filtered scan. Use when semantic search isn't applicable
+    (e.g. listing all companies, bulk data for filtering)."""
+    where = {"section": section} if section else None
+    raw = store.collection.get(where=where, limit=limit)
+    docs = []
+    for d, m in zip(raw.get("documents", []), raw.get("metadatas", [])):
+        docs.append(Document(page_content=d, metadata=m))
+    return docs
+
+
+def get_section_all(store: ChromaStore, section: str) -> List[Document]:
+    """
+    Exact metadata-filtered retrieval — returns ALL documents in a section.
+    This is NOT semantic search. Use retrieve_semantic() for query-driven retrieval.
+    Results are cached per-session to avoid repeated DB scans.
+    """
     global _SECTION_CACHE
     if _SECTION_CACHE_ENABLED and section in _SECTION_CACHE:
-        return _SECTION_CACHE[section]
-    results = store.collection.get(where={"section": section})
-    if _SECTION_CACHE_ENABLED:
-        _SECTION_CACHE[section] = results
-    return results
+        raw = _SECTION_CACHE[section]
+    else:
+        raw = store.collection.get(where={"section": section})
+        if _SECTION_CACHE_ENABLED:
+            _SECTION_CACHE[section] = raw
+    docs = []
+    for d, m in zip(raw.get("documents", []), raw.get("metadatas", [])):
+        docs.append(Document(page_content=d, metadata=m))
+    return docs
 
 
 def clear_section_cache():
     global _SECTION_CACHE
     _SECTION_CACHE = {}
-
-
-def gather_retrieved_contexts(state: Dict[str, Any], fields: Optional[List[str]] = None) -> List[Document]:
-    """Backward compatible helper returning collapsed contexts."""
-    return state.get("retrieved_contexts") or []
-

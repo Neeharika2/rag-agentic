@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any
 from langchain_core.documents import Document
-from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_cached
+from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_all, retrieve_semantic
 from .multihop_engine import MultiHopEngine
 
 def trend_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -25,13 +25,15 @@ def trend_node(state: Dict[str, Any]) -> Dict[str, Any]:
     
     store = get_chroma_store()
     
-    results = get_section_cached(store, "n_rag_challenge_-_temporal_reasoning")
-    docs = results["documents"]
-    metas = results["metadatas"]
+    # PRIMARY: semantic retrieval of temporal/trend data
+    trend_docs = retrieve_semantic(query, store, section="n_rag_challenge_-_temporal_reasoning", limit=30)
+    if not trend_docs:
+        trend_docs = get_section_all(store, "n_rag_challenge_-_temporal_reasoning")
     
     parsed_trends = []
     min_year, max_year = None, None
-    for doc, meta in zip(docs, metas):
+    for doc in trend_docs:
+        meta = doc.metadata
         if meta.get("type") != "tabular":
             continue
         comp = meta.get("company", "")
@@ -77,7 +79,7 @@ def trend_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "earliest_pkg": pkg_earliest,
             "latest_pkg": pkg_latest,
             "growth": growth,
-            "text": doc,
+            "text": doc.page_content,
             "meta": meta
         })
         
@@ -97,7 +99,7 @@ def trend_node(state: Dict[str, Any]) -> Dict[str, Any]:
         metadata={"section": "n_rag_challenge_-_temporal_reasoning", "type": "python_summary"}
     )
     
-    return_docs = [Document(page_content=d, metadata=m) for d, m in zip(docs, metas)]
+    return_docs = list(trend_docs)
     return_docs.append(summary_doc)
     
     return {"retrieved_contexts": return_docs}

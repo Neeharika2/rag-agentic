@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any, List
 from langchain_core.documents import Document
-from .company_utils import get_chroma_store, get_section_cached, normalize_company_name, check_academic_eligibility
+from .company_utils import get_chroma_store, get_section_all, retrieve_semantic, normalize_company_name, check_academic_eligibility
 
 def opportunity_detector_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -21,16 +21,18 @@ def opportunity_detector_node(state: Dict[str, Any]) -> Dict[str, Any]:
     
     # Retrieve all eligibility profiles from database
     try:
-        results = get_section_cached(store, "section_1:_company_eligibility_profiles")
-        docs = results.get("documents", [])
-        metas = results.get("metadatas", [])
+        # Use semantic search to find relevant eligibility profiles
+        profile_docs = retrieve_semantic("company eligibility criteria cutoff package", store, section="section_1:_company_eligibility_profiles", limit=50)
+        if not profile_docs:
+            profile_docs = get_section_all(store, "section_1:_company_eligibility_profiles")
     except Exception as e:
         print(f"[*] Error fetching profiles from ChromaDB: {e}")
-        docs, metas = [], []
+        profile_docs = []
         
     eligible_companies = []
     
-    for doc, meta in zip(docs, metas):
+    for doc in profile_docs:
+        meta = doc.metadata
         if not meta or meta.get("type") != "tabular":
             continue
             
