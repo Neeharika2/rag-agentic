@@ -1,8 +1,11 @@
 import os
 import re
+import logging
 from typing import Dict, Any, List, Optional
 from langchain_core.documents import Document
 from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_all, retrieve_semantic
+
+logger = logging.getLogger(__name__)
 
 def parse_attributes_from_text(text: str) -> Dict[str, str]:
     """
@@ -152,7 +155,7 @@ def log_retrieved_chunks(query: str, docs: List[Document]):
                 f.write("\n")
             f.write("=" * 80 + "\n\n")
     except Exception as e:
-        print(f"[*] Warning: Could not log retrieved chunks: {e}")
+        logger.warning("Could not log retrieved chunks: %s", e)
 
 def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -169,10 +172,10 @@ def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # If query type is conflict, dynamically retrieve conflict info via semantic search
     q_type = state.get("query_type")
     conflict_docs = []
-    if q_type == "conflict" or "conflict" in (state.get("user_query") or "").lower():
+    if q_type == "conflict" or "conflict" in (state.get("query", "")).lower():
         try:
             store = get_chroma_store()
-            query = state.get("user_query") or state.get("query") or ""
+            query = state.get("query", "") or ""
             # PRIMARY: semantic search for conflict documents
             conflict_docs = retrieve_semantic(query, store, section="n_rag_challenge_-_conflicting_information", limit=10)
             if not conflict_docs:
@@ -180,12 +183,12 @@ def validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 conflict_docs = get_section_all(store, "n_rag_challenge_-_conflicting_information")
             all_docs.extend(conflict_docs)
         except Exception as e:
-            print(f"[*] Info: Could not retrieve conflict documents: {e}")
+            logger.info("Could not retrieve conflict documents: %s", e)
             
     target_companies = [c.lower() for c in state.get("entities", [])]
     
     # Log the chunks retrieved for this query
-    query = state.get("user_query") or state.get("query") or ""
+    query = state.get("query", "") or ""
     log_retrieved_chunks(query, all_docs)
     
     conflict_details = detect_conflicts_dynamically(all_docs, target_companies)

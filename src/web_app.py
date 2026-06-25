@@ -129,9 +129,8 @@ async def query_endpoint(request: QueryRequest):
         logger.info(f"Student Profile Details: {request.student_profile.dict()}")
         
     try:
-        # Construct graph initial state supporting both user_query and backward-compatible query key
+        # Construct graph initial state
         initial_state = {
-            "user_query": query_str,
             "query": query_str
         }
         

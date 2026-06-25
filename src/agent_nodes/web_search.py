@@ -1,7 +1,10 @@
 import os
+import logging
 import requests
 from typing import List
 from langchain_core.documents import Document
+
+logger = logging.getLogger(__name__)
 
 def tavily_search(query: str) -> List[Document]:
     """
@@ -10,7 +13,7 @@ def tavily_search(query: str) -> List[Document]:
     """
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
-        print("[*] Warning: TAVILY_API_KEY not found in environment. Skipping web search.")
+        logger.warning("TAVILY_API_KEY not found in environment. Skipping web search.")
         return []
     
     url = "https://api.tavily.com/search"
@@ -44,10 +47,10 @@ def tavily_search(query: str) -> List[Document]:
                     page_content=f"Source: {title} ({url_str})\nContent: {content}",
                     metadata={"section": "tavily_web_search", "source": url_str}
                 ))
-        print(f"[*] Tavily web search retrieved {len(docs)} document chunks.")
+        logger.info("Tavily web search retrieved %d document chunks.", len(docs))
         return docs
     except Exception as e:
-        print(f"[*] Error during Tavily Search: {e}")
+        logger.error("Error during Tavily Search: %s", e)
         return []
 
 from typing import Dict, Any
@@ -57,8 +60,8 @@ def websearch_node(state: Dict[str, Any]) -> Dict[str, Any]:
     WebsearchNode: Runs when query intent is 'fallback' (out of corpus / general).
     Calls Tavily Search API and saves context in 'retrieved_contexts'.
     """
-    query = state.get("user_query") or state.get("query") or ""
-    print(f"[*] Running Web Search via Tavily for query: '{query}'")
+    query = state.get("query", "")
+    logger.info("Running Web Search via Tavily for query: '%s'", query)
     web_docs = tavily_search(query)
     return {
         "retrieved_contexts": web_docs

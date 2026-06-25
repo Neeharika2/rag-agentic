@@ -1,7 +1,10 @@
 import re
+import logging
 from typing import Dict, Any, List
 from langchain_core.documents import Document
 from .company_utils import get_chroma_store, get_section_all, retrieve_semantic, normalize_company_name, check_academic_eligibility
+
+logger = logging.getLogger(__name__)
 
 def opportunity_detector_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -26,7 +29,7 @@ def opportunity_detector_node(state: Dict[str, Any]) -> Dict[str, Any]:
         if not profile_docs:
             profile_docs = get_section_all(store, "section_1:_company_eligibility_profiles")
     except Exception as e:
-        print(f"[*] Error fetching profiles from ChromaDB: {e}")
+        logger.error("Error fetching profiles from ChromaDB: %s", e)
         profile_docs = []
         
     eligible_companies = []
@@ -80,9 +83,9 @@ def opportunity_detector_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # Sort eligible companies by skill score descending, then starting package (LPA) descending
     eligible_companies.sort(key=lambda x: (x["skill_score"], x["package"]), reverse=True)
     
-    print(f"[*] OpportunityDetector: Matched {len(eligible_companies)} eligible companies.")
+    logger.info("OpportunityDetector: Matched %d eligible companies.", len(eligible_companies))
     for c in eligible_companies[:3]:
-         print(f"    - {c['company']} ({c['package']} LPA, Skill Score: {c['skill_score']})")
+         logger.info("    - %s (%s LPA, Skill Score: %s)", c['company'], c['package'], c['skill_score'])
          
     return {
         "opportunities": eligible_companies

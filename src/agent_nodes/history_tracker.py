@@ -1,7 +1,10 @@
 import os
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 def _get_log_path() -> Path:
     # Save in logs/progress_history.json
@@ -17,7 +20,7 @@ def _load_logs() -> dict:
             with open(log_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            print(f"[*] Error loading progress logs: {e}")
+            logger.error("Error loading progress logs: %s", e)
             
     return {"session_id": "student_svecw_99", "history": []}
 
@@ -27,7 +30,7 @@ def _save_logs(data: dict):
         with open(log_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
     except Exception as e:
-        print(f"[*] Error saving progress logs: {e}")
+        logger.error("Error saving progress logs: %s", e)
 
 def append_history(profile: dict, scores: dict):
     data = _load_logs()

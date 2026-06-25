@@ -9,7 +9,7 @@ def hiring_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     HiringStatsNode: Manages queries about numbers of SDE, Analyst, Intern, or Officer roles.
     Integrates with interview prep focus data to execute multi-column joins (e.g. Python-focused intern counts).
     """
-    query = state.get("user_query") or state.get("query") or ""
+    query = state.get("query", "")
     entities = state.get("entities", [])
     
     mh_doc = MultiHopEngine.resolve_query(query)

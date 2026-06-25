@@ -16,10 +16,10 @@ from .multihop_engine import MultiHopEngine
 def eligibility_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     EligibilityNode: Handles CGPA, backlogs, bond, and package threshold filters.
-    Reads 'user_query' (or 'query') and optional 'entities' from state,
+    Reads 'query' and optional 'entities' from state,
     filters the database results in Python, and updates 'retrieved_contexts'.
     """
-    query = state.get("user_query") or state.get("query") or ""
+    query = state.get("query", "")
     entities = state.get("entities", [])
     
     mh_doc = MultiHopEngine.resolve_query(query)

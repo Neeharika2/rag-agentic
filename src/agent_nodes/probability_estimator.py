@@ -1,8 +1,11 @@
 import re
+import logging
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from .llm_utils import get_structured_llm
 from .company_utils import get_chroma_store, get_section_all, retrieve_semantic, normalize_company_name
+
+logger = logging.getLogger(__name__)
 
 class CalibrationOutput(BaseModel):
     delta: int = Field(description="Structured calibration delta, must be exactly -10, 0, or 10")
@@ -47,7 +50,7 @@ def get_company_details(company_name: str, store) -> str:
             if sec.startswith("n_") and company_name.lower().replace(";", "").replace(" r&d", "") in sec.lower():
                 company_docs.append(doc.page_content)
     except Exception as e:
-        print(f"[*] Info: Could not retrieve detailed sections for {company_name}: {e}")
+        logger.info("Could not retrieve detailed sections for %s: %s", company_name, e)
         
     if not company_docs:
         return "No additional round details or job description available in the database."
@@ -69,7 +72,7 @@ def get_company_tech_focus_keywords(company_name: str, store) -> List[str]:
                     if item_clean:
                         keywords.add(item_clean)
     except Exception as e:
-        print(f"[*] Info: Could not get tech focus keywords from DB: {e}")
+        logger.info("Could not get tech focus keywords from DB: %s", e)
         
     return list(keywords)
 
@@ -167,7 +170,7 @@ def score_profile_for_company(prof: Dict[str, Any], opp: Dict[str, Any], store, 
                 else:
                     calibration_delta = 0
         except Exception as e:
-            print(f"[*] Warning: Calibration LLM call failed for {company_name}: {e}")
+            logger.warning("Calibration LLM call failed for %s: %s", company_name, e)
             reason = "Failed to run LLM calibration: using default heuristic score."
             
     final_score = max(0.0, min(100.0, base_score + calibration_delta))
@@ -199,7 +202,7 @@ def probability_estimator_node(state: Dict[str, Any]) -> Dict[str, Any]:
     try:
         structured_llm = get_structured_llm(CalibrationOutput, temperature=0)
     except Exception as e:
-        print(f"[*] Warning: Could not instantiate LLM for calibration: {e}")
+        logger.warning("Could not instantiate LLM for calibration: %s", e)
         structured_llm = None
         
     for opp in opportunities:
@@ -243,7 +246,7 @@ def probability_estimator_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # Append current simulated or normal run
         append_history(profile, probability_scores)
     except Exception as e:
-        print(f"[*] Warning: Could not save run to history tracker: {e}")
+        logger.warning("Could not save run to history tracker: %s", e)
         
     return {
         "opportunities": updated_opportunities,

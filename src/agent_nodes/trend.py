@@ -9,7 +9,7 @@ def trend_node(state: Dict[str, Any]) -> Dict[str, Any]:
     TrendNode: Tracks package growth trends from 2021 to 2024.
     Computes growth = Package(2024) - Package(2021) and identifies highest absolute rise.
     """
-    query = state.get("user_query") or state.get("query") or ""
+    query = state.get("query", "")
     entities = state.get("entities", [])
     
     mh_doc = MultiHopEngine.resolve_query(query)

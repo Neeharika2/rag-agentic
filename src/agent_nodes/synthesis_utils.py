@@ -1,7 +1,10 @@
+import logging
 from typing import Dict, Any, List
 from langchain_core.documents import Document
 from .llm_utils import get_llm
 from langchain_core.prompts import ChatPromptTemplate
+
+logger = logging.getLogger(__name__)
 
 
 def _format_context(all_docs: List[Document]) -> str:
@@ -61,9 +64,9 @@ def generate_simulation_response(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     try:
-        answer = _llm_answer(system_prompt, state.get("user_query") or state.get("query") or "")
+        answer = _llm_answer(system_prompt, state.get("query", "") or "")
     except Exception as e:
-        print(f"[*] Info: Simulation Synthesis LLM call failed: {e}")
+        logger.info("Simulation Synthesis LLM call failed: {e}")
         answer = f"### What-If Simulation Report\n\nHere is the simulated progress across companies:\n\n{opps_str}"
 
     return {
@@ -98,9 +101,9 @@ def generate_strategy_response(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     try:
-        answer = _llm_answer(system_prompt, state.get("user_query") or state.get("query") or "")
+        answer = _llm_answer(system_prompt, state.get("query", "") or "")
     except Exception as e:
-        print(f"[*] Info: Strategy Synthesis LLM call failed: {e}")
+        logger.info("Strategy Synthesis LLM call failed: {e}")
         answer = f"Here are your eligible companies:\n\n{opps_str}"
 
     return {
@@ -111,7 +114,7 @@ def generate_strategy_response(state: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def generate_conflict_response(state: Dict[str, Any], conflict_details: Dict[str, Any]) -> Dict[str, Any]:
-    query = state.get("user_query") or state.get("query") or ""
+    query = state.get("query", "") or ""
     system_prompt = (
         f"You are an expert Placement Assistant compiling a final answer.\n"
         f"A placement data conflict has been detected:\n"
@@ -142,6 +145,41 @@ def generate_conflict_response(state: Dict[str, Any], conflict_details: Dict[str
     }
 
 
+def _lookup_company_packages(query: str, all_docs: List[Document]) -> str:
+    from .company_utils import get_chroma_store, retrieve_semantic, get_canonical_companies
+    try:
+        store = get_chroma_store()
+        query_lower = query.lower()
+        canonical = get_canonical_companies()
+        mentioned = [c for c in canonical if c.lower() in query_lower]
+        if not mentioned:
+            mentioned = [c for c in canonical if any(w in query_lower for w in c.lower().split())]
+        if mentioned:
+            lines = []
+            for company in mentioned[:5]:
+                docs = retrieve_semantic(f"{company} package salary LPA", store, section="section_1:_company_eligibility_profiles", limit=3)
+                snippets = [d.page_content[:200] for d in docs if d.page_content]
+                if snippets:
+                    lines.append(f"**{company}**: {' | '.join(snippets)}")
+            if lines:
+                return (
+                    "**[Offline Fallback Answer — Database Lookup]**\n"
+                    "Here is the data retrieved from the placement database:\n\n" +
+                    "\n\n".join(lines)
+                )
+    except Exception as e:
+        logger.warning("Company package lookup failed: %s", e)
+    summary_bullets = []
+    for doc in all_docs:
+        src = doc.metadata.get("source", "Web Search")
+        summary_bullets.append(f"- [{src}] {doc.page_content}")
+    return (
+        "**[Offline Fallback Web Answer]**\n"
+        "Here are the web search results retrieved for your query:\n\n" +
+        "\n".join(summary_bullets)
+    )
+
+
 def generate_web_response(query: str, all_docs: List[Document]) -> Dict[str, Any]:
     context_str = _format_context(all_docs)
     system_prompt = (
@@ -152,24 +190,13 @@ def generate_web_response(query: str, all_docs: List[Document]) -> Dict[str, Any
     try:
         answer = _llm_answer(system_prompt, query)
     except Exception:
-        if "google" in query.lower() and "microsoft" in query.lower():
-            answer = "Career preference is subjective; Google offers 42.0 LPA and Microsoft offers 21.4 LPA."
-        else:
-            summary_bullets = []
-            for doc in all_docs:
-                src = doc.metadata.get("source", "Web Search")
-                summary_bullets.append(f"- [{src}] {doc.page_content}")
-            answer = (
-                "**[Offline Fallback Web Answer]**\n"
-                "Here are the web search results retrieved for your query:\n\n" +
-                "\n".join(summary_bullets)
-            )
+        answer = _lookup_company_packages(query, all_docs)
     sources = list(set([doc.metadata.get("section", "general") for doc in all_docs if doc.metadata]))
     return {"final_answer": answer, "sources": sources, "confidence": 0.85}
 
 
 def generate_normal_response(state: Dict[str, Any], all_docs: List[Document]) -> Dict[str, Any]:
-    query = state.get("user_query") or state.get("query") or ""
+    query = state.get("query", "") or ""
     context_str = _format_context(all_docs)
     system_prompt = (
         "You are an expert Placement Assistant. Answer the user query using the provided context below. "
@@ -187,7 +214,7 @@ def generate_normal_response(state: Dict[str, Any], all_docs: List[Document]) ->
     try:
         answer = _llm_answer(system_prompt, query)
     except Exception as e:
-        print(f"[*] Info: Synthesis LLM call failed, falling back to offline synthesis: {e}")
+        logger.info("Synthesis LLM call failed, falling back to offline synthesis: {e}")
         mh_docs = [d for d in all_docs if d.metadata and "multi_hop_reasoning" in d.metadata.get("section", "")]
         if mh_docs:
             answer = mh_docs[0].page_content

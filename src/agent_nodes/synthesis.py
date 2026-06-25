@@ -12,7 +12,14 @@ from .synthesis_utils import (
 
 
 def synthesis_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    query = state.get("user_query") or state.get("query") or ""
+    # Check for early-exit messages (e.g., empty DB guard)
+    warnings = state.get("warnings")
+    if warnings:
+        return {
+            "final_answer": warnings[0] if isinstance(warnings, list) else str(warnings)
+        }
+
+    query = state.get("query", "")
     query_lower = query.lower()
 
     is_simulation = state.get("is_simulation", False)

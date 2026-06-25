@@ -217,7 +217,7 @@ def run_evaluation():
             "Should I join Google or Microsoft? Which is better for my career?",
             "websearch",
             ["google", "microsoft"],
-            "Career preference is subjective; Google offers 42.0 LPA and Microsoft offers 21.4 LPA."
+            "Google and Microsoft offer different opportunities; Google offers 42.0 LPA and Microsoft offers 21.4 LPA."
         ),
         "X3": (
             "I have CGPA 5.0. Where can I apply?",
@@ -252,12 +252,14 @@ def run_evaluation():
         print(f"\n[{case_id}] Running Query: '{query}'")
         
         initial_state = {
-            "user_query": query,
             "query": query
         }
         
-        # Sleep for a small delay to avoid rate limit spikes on Gemini API
-        time.sleep(3.0)
+        # Configurable delay between queries to avoid rate limit spikes on Gemini API
+        # Set EVAL_SLEEP=0 or unset to disable (default 3.0s)
+        eval_sleep = float(os.environ.get("EVAL_SLEEP", "3.0"))
+        if eval_sleep > 0:
+            time.sleep(eval_sleep)
         
         try:
             # Trace nodes programmatically using stream

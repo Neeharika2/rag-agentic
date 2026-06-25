@@ -1,7 +1,11 @@
 import os
 import re
-from typing import List, Optional
+import logging
+from typing import List, Optional, Dict, Any
+from langchain_core.documents import Document
 from src.vectorstore.chroma_store import ChromaStore
+
+logger = logging.getLogger(__name__)
 
 _CANONICAL_COMPANIES_CACHE = None
 _ALIAS_RESOLVER_CACHE = {}
@@ -35,7 +39,7 @@ def get_canonical_companies() -> List[str]:
             _CANONICAL_COMPANIES_CACHE = sorted(list(companies))
             return _CANONICAL_COMPANIES_CACHE
     except Exception as e:
-        print(f"[*] Info: Could not get canonical companies from DB dynamically: {e}")
+        logger.warning("Could not get canonical companies from DB dynamically: %s", e)
     return []
 
 def normalize_company_name(name: str) -> str:
@@ -154,3 +158,8 @@ def get_section_all(store: ChromaStore, section: str) -> List[Document]:
 def clear_section_cache():
     global _SECTION_CACHE
     _SECTION_CACHE = {}
+
+def clear_canonical_cache():
+    global _CANONICAL_COMPANIES_CACHE, _ALIAS_RESOLVER_CACHE
+    _CANONICAL_COMPANIES_CACHE = None
+    _ALIAS_RESOLVER_CACHE.clear()

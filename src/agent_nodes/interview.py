@@ -9,7 +9,7 @@ def interview_prep_node(state: Dict[str, Any]) -> Dict[str, Any]:
     InterviewPrepNode: Retrieves company selection rounds, topics, and programming focuses.
     Matches companies mentioned in state['entities'] or query text to technical focus sections.
     """
-    query = state.get("user_query") or state.get("query") or ""
+    query = state.get("query", "")
     entities = state.get("entities", [])
     
     mh_doc = MultiHopEngine.resolve_query(query)

@@ -1,8 +1,13 @@
+import logging
 from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 from typing import List
 from .llm_utils import get_structured_llm
 from langchain_core.prompts import ChatPromptTemplate
+from .company_utils import clear_section_cache, clear_canonical_cache
+
+logger = logging.getLogger(__name__)
+
 class StudentProfile(BaseModel):
     cgpa: Optional[float] = Field(None, description="Student's CGPA, normalized between 0.0 and 10.0")
     skills: List[str] = Field(default_factory=list, description="Extracted tech stack, programming languages, or domain skills (e.g., Python, SQL, Web Dev)")
@@ -32,8 +37,38 @@ def profile_builder_node(state: Dict[str, Any]) -> Dict[str, Any]:
     If 'student_profile' was already supplied directly via the frontend form payload,
     it uses it directly and flags 'is_strategy_query' as True, unless it is a what-if query.
     """
-    query = state.get("user_query") or state.get("query") or ""
+    # Clear per-run caches so re-ingestion is picked up
+    clear_section_cache()
+    clear_canonical_cache()
+
+    query = state.get("query", "")
     query_lower = query.lower()
+    
+    # Guard: check if the database has been ingested before proceeding
+    try:
+        from .company_utils import get_chroma_store
+        store = get_chroma_store()
+        count = store.collection.count()
+        if count == 0:
+            msg = "The placement database is empty. Please run the ingestion pipeline first (python run_ingestion.py) before making queries."
+            logger.error(msg)
+            return {
+                "student_profile": {"cgpa": None, "skills": [], "weaknesses": [], "interests": [], "backlogs": 0, "projects_count": 0},
+                "is_strategy_query": False,
+                "is_simulation": False,
+                "warnings": [msg],
+                "final_answer": msg
+            }
+    except Exception as e:
+        msg = f"Cannot connect to the placement database: {e}. Ensure ChromaDB is initialized and ingestion has been run."
+        logger.error(msg)
+        return {
+            "student_profile": {"cgpa": None, "skills": [], "weaknesses": [], "interests": [], "backlogs": 0, "projects_count": 0},
+            "is_strategy_query": False,
+            "is_simulation": False,
+            "warnings": [msg],
+            "final_answer": msg
+        }
     
     # Check if this is a what-if simulation query based on keywords
     sim_keywords = ["what if", "what-if", "simulate", "if i learn", "if i add", "if my cgpa"]
@@ -42,7 +77,7 @@ def profile_builder_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # 1. If student profile was passed in state directly and not a simulation query, use it
     input_profile = state.get("student_profile")
     if input_profile and isinstance(input_profile, dict) and input_profile.get("cgpa") is not None and not is_sim_query:
-        print("[*] ProfileBuilder: Found pre-populated profile in state.")
+        logger.info("Found pre-populated profile in state.")
         return {
             "student_profile": input_profile,
             "is_strategy_query": True,
@@ -54,7 +89,7 @@ def profile_builder_node(state: Dict[str, Any]) -> Dict[str, Any]:
     has_strategy_keyword = any(k in query_lower for k in strategy_keywords)
     
     if not has_strategy_keyword and not is_sim_query:
-        print("[*] ProfileBuilder: Bypassing LLM profile extraction for factual lookup query.")
+        logger.info("Bypassing LLM profile extraction for factual lookup query.")
         return {
             "student_profile": {
                 "cgpa": None,
@@ -143,7 +178,7 @@ def profile_builder_node(state: Dict[str, Any]) -> Dict[str, Any]:
                     if not any(is_skill_match(w, s) for s in sim_skills_to_add)
                 ]
                 
-            print(f"[*] ProfileBuilder: Simulation detected. Baseline={baseline_profile}, Simulated={simulated_profile}")
+            logger.info("Simulation detected. Baseline=%s, Simulated=%s", baseline_profile, simulated_profile)
             
             return {
                 "student_profile": simulated_profile,
@@ -152,8 +187,8 @@ def profile_builder_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 "is_simulation": True
             }
         
-        print(f"[*] ProfileBuilder: Parsed profile -> {profile_dict}")
-        print(f"[*] ProfileBuilder: is_strategy_query -> {result.is_strategy_query}")
+        logger.info("Parsed profile -> %s", profile_dict)
+        logger.info("is_strategy_query -> %s", result.is_strategy_query)
         
         return {
             "student_profile": profile_dict,
@@ -162,7 +197,7 @@ def profile_builder_node(state: Dict[str, Any]) -> Dict[str, Any]:
         }
         
     except Exception as e:
-        print(f"[*] Warning: Profile extraction failed, using fallback: {e}")
+        logger.warning("Profile extraction failed, using fallback: %s", e)
         # Return empty baseline fallback
         return {
             "student_profile": {

@@ -30,7 +30,13 @@ def main():
     print(f"    - Parsed raw layout items: {result['parsed_elements_count']}")
     print(f"    - Created indexable chunks: {result['chunks_count']}")
     
-    # 5. Run a simple keyword query on the populated database to verify retrieval
+    # 5. Clear in-memory caches so subsequent queries pick up fresh data
+    from src.agent_nodes.company_utils import clear_section_cache, clear_canonical_cache
+    clear_section_cache()
+    clear_canonical_cache()
+    print("[*] Cleared in-memory caches.")
+
+    # 6. Run a simple keyword query on the populated database to verify retrieval
     print("\n[*] Performing verification query on vector database...")
     query = "TCS CGPA requirement"
     search_results = vector_store.search(query, limit=2)

@@ -1,15 +1,18 @@
 import re
+import logging
 from typing import Dict, Any
 from langchain_core.documents import Document
 from .company_utils import normalize_company_name, get_canonical_companies, get_chroma_store, get_section_all, retrieve_semantic
 from .multihop_engine import MultiHopEngine
+
+logger = logging.getLogger(__name__)
 
 def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     OverallStatsNode: Computes arithmetic placement statistics and aggregations.
     Calculates package-to-CGPA ratios and ranks offers from section 7.
     """
-    query = state.get("user_query") or state.get("query") or ""
+    query = state.get("query", "")
     entities = state.get("entities", [])
     
     mh_doc = MultiHopEngine.resolve_query(query)
@@ -46,7 +49,7 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 except ValueError:
                     pass
     except Exception as e:
-        print(f"[*] Warning: Could not retrieve section_1 packages: {e}")
+        logger.warning("Could not retrieve section_1 packages: %s", e)
     
     # PRIMARY: semantic retrieval of statistics data
     stats_docs = retrieve_semantic(query, store, section="section_7:_overall_placement_statistics", limit=30)
@@ -135,7 +138,7 @@ def overall_stats_node(state: Dict[str, Any]) -> Dict[str, Any]:
             sec1_docs = get_section_all(store, "section_1:_company_eligibility_profiles")
             return_docs.extend(sec1_docs)
         except Exception as e:
-            print(f"[*] Warning: Could not retrieve section_1 profiles: {e}")
+            logger.warning("Could not retrieve section_1 profiles: %s", e)
             
     return_docs.append(summary_doc)
     

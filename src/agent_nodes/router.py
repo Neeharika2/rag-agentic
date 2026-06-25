@@ -1,6 +1,9 @@
 import re
+import logging
 from typing import Dict, Any, List
 from .company_utils import get_canonical_companies, normalize_company_name
+
+logger = logging.getLogger(__name__)
 
 def rule_based_router(query: str) -> dict:
     query_lower = query.lower()
@@ -69,7 +72,7 @@ def router_node(state: Dict[str, Any]) -> Dict[str, Any]:
     RouterNode: Uses LLM with structured output to classify user query intents and extract entities.
     Falls back to a robust rule-based parser if LLM execution fails.
     """
-    query = state.get("user_query") or state.get("query") or ""
+    query = state.get("query", "")
     
     # Initialize result structure
     query_type = "eligibility"
@@ -109,8 +112,8 @@ def router_node(state: Dict[str, Any]) -> Dict[str, Any]:
         query_type = result.query_type
         entities = result.entities
     except Exception as e:
-        print(f"[*] Info: Router LLM structured call failed: {e}")
-        print("[*] Falling back to rule-based classification...")
+        logger.info("Router LLM structured call failed: %s", e)
+        logger.info("Falling back to rule-based classification...")
         # Fallback to rule-based routing
         rule_res = rule_based_router(query)
         query_type = rule_res["query_type"]

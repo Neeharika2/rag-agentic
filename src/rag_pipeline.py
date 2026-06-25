@@ -35,8 +35,7 @@ def reduce_contexts(left: List[Document], right: List[Document]) -> List[Documen
 
 
 class PlacementAgentState(TypedDict):
-    user_query: str
-    query: Optional[str]
+    query: str
 
     query_type: str
     entities: List[str]
@@ -59,8 +58,6 @@ class PlacementAgentState(TypedDict):
     probability_scores: Optional[Dict[str, float]]
     strategy_plan: Optional[Dict[str, Any]]
     warnings: Optional[List[str]]
-
-    _needs_validation: bool
 
 
 def route_query(state: PlacementAgentState) -> str:
@@ -86,6 +83,9 @@ def route_query(state: PlacementAgentState) -> str:
 
 
 def route_after_profile_builder(state: PlacementAgentState) -> str:
+    # If DB is empty, skip all retrieval and go straight to synthesis
+    if state.get("warnings") and len(state.get("warnings", [])) > 0:
+        return "synthesis"
     if state.get("is_strategy_query"):
         return "opportunity"
     return "router"
@@ -115,7 +115,7 @@ def build_placement_graph():
     workflow.add_conditional_edges(
         "profile_builder",
         route_after_profile_builder,
-        {"opportunity": "opportunity", "router": "router"}
+        {"opportunity": "opportunity", "router": "router", "synthesis": "synthesis"}
     )
 
     # Add conditional edges from router
@@ -133,7 +133,7 @@ def build_placement_graph():
     )
 
     workflow.add_edge("opportunity", "probability_estimator")
-    workflow.add_edge("probability_estimator", "synthesis")
+    workflow.add_edge("probability_estimator", "validation")
     
     # Retrieval node standard edges
     workflow.add_edge("eligibility", "validation")
